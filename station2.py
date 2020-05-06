@@ -9,6 +9,7 @@ from select import select
 
 fullCommand = ''
 stationName = ""
+originalTCP = ""
 tcp_port = -1
 udp_port = -1
 neighbours = []
@@ -165,12 +166,16 @@ while True:
 			print("(TCP) Now Connected to:", client_addr)
 			if client_sock:
 				data, addr = client_sock.recvfrom(1024)
-				print "Recv TCP:'%s'" % data
+				print(data)
 				
 				dataList = data.decode().split('\n')
 				head = dataList[0]
+				originalTCP = dataList[1].replace("Host: localhost:", "")
+				print("***************************************************")
+				print(originalTCP)
+				print("***************************************************")
 				if(len(requestHeader) == 0):
-					requestHeader = head
+					requestHeader = data.decode()
 					requestInfo = head.split(' ')
 					request_uri = requestInfo[1]
 					
@@ -188,9 +193,6 @@ while True:
 					current_time = now.strftime("%H:%M:%S")
 					departureTime = current_time[0:5]
 					
-					"""
-					departureTime = ls2[1].replace("leave", "").replace("%3A", ":")
-					"""
 					
 					if(checkDirectRoute(destinationStation)):
 						route = nextAvailableRoute(departureTime, destinationStation)
@@ -217,7 +219,8 @@ while True:
 						msg = " ".join((msg, bodyMsg, msg_end))
 					else:
 						# requires transfer to different station
-						h = requestHeader.split(" ")
+						ls = requestHeader.split("\n")
+						h = ls[0]
 						uri = h[1]
 						
 						# get the Departure Time based on current time
@@ -250,12 +253,18 @@ while True:
 								neighbour_address = ('localhost', neighbour)
 							
 								# append to current protocol/URL
-								h = requestHeader.split(" ")
-								uri = h[1]
-								new_uri = "".join((uri, "&through=", stationName,  "%", departureTime, "!"))
-								new_requestHeader = " ".join((h[0], new_uri, h[2]))
+								lines = requestHeader.split("\r")
+								h = lines[0].split(" ")
+								this_uri = str(h[1])
+								new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, "!"))
+								
+							
+								requestHeader = requestHeader.replace(this_uri, new_uri)
+								print("************************************")
+								print(requestHeader)
+								print("************************************")
 								# send request to UDP of neighbour
-								sockUDP.sendto(new_requestHeader.encode(), neighbour_address)
+								sockUDP.sendto(requestHeader.encode(), neighbour_address)
 							
 		else:
 			# UDP Connection

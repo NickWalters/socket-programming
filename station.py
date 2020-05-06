@@ -3,11 +3,13 @@
 import sys
 import socket
 from datetime import datetime
+from select import select
 
 # GLOBAL VARIABLES ***************************************************
 
 fullCommand = ''
 stationName = ""
+originalTCP = ""
 tcp_port = -1
 udp_port = -1
 neighbours = []
@@ -103,6 +105,8 @@ def nextAvailableRoute(current_time, destinationStation):
 						
 		if(len(possibleBoardingTimes) > 0):
 			possibleBoardingTimes.reverse()
+			for time in possibleBoardingTimes:
+				print(time)
 			return possibleBoardingTimes[0]
 		else:
 			print("Error: There is route that is beyond the current time. You have either missed the last bus, or there is no direct route")
@@ -110,6 +114,7 @@ def nextAvailableRoute(current_time, destinationStation):
 		print("Error: There was no request from the Client to go Anywhere")
 
 # NETWORKING *********************************************************
+
 
 # output message
 msg = '''HTTP/1.1 200 OK
@@ -144,96 +149,140 @@ sockUDP.bind(server_addressUDP)
 # wait for connections (clients)
 print("Waiting for connections...")
 print(" ")
-sockTCP.listen(220)
+sockTCP.listen(20)
 
 request = ''
 
-client_sock, client_addr = sockTCP.accept()
-	
-print("Now Connected to:", client_addr)
-print('')
-	
-data, addr = client_sock.recvfrom(1024)
+input = [sockTCP, sockUDP]
+outputs = []
 
-if not data:
-	udp_data, udp_addr = sockUDP.recvfrom(1024)
-	if not udp_data:
-		print("---------Didn't Recieve Any Data")
-	else:
-		# found UDP Data
-		data = udp_data
-		print("Received (UDP): \n" + data.decode())
-else:
-	#found TCP Data
-	print("Received (TCP): \n" + data.decode())
+while True:
+	readable, writable, exceptions = select(input, [], [])
 	
-		
-	dataList = data.decode().split('\n')
-	head = dataList[0]
-	if(len(requestHeader) == 0):
-		requestHeader = head
-		requestInfo = head.split(' ')
-		request_uri = requestInfo[1]
-		
-		
-		# get the Destination Station from recieved request
-		ls = request_uri.split('=')
-		ls.remove(ls[0])
-		part = "".join(ls)
-		ls2 = part.split('&')
-			
-		destinationStation = str(ls2[0])
-		
-		# get the Departure Time for the recieved request
-		now = datetime.now()
-		current_time = now.strftime("%H:%M:%S")
-		departureTime = current_time[0:5]
-		
-		"""
-		departureTime = ls2[1].replace("leave", "").replace("%3A", ":")
-		"""
-		
-		if(checkDirectRoute(destinationStation)):
-			route = nextAvailableRoute(departureTime, destinationStation)
+	for sock in readable:
+		if sock is sockTCP:
+			# TCP Connection
+			client_sock, client_addr = sockTCP.accept()
+			print("(TCP) Now Connected to:", client_addr)
+			if client_sock:
+				data, addr = client_sock.recvfrom(1024)
+				print(data)
 				
-			boardTime = route[0]
-			transportNumber = route[1]
-			stopPlatform = route[2]
-			arrivalTime = route[3]
-				
-			bodyMsg = ''' 
-			<p>There is a direct route to your desired station<p>
-			<h2>from {} to: {} </h2>
-			<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-			<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-			<p> Time: {} </p>
-			<p> Station: {} </p>
-			<p> Platform/Stand: {} </p>
-				
-			<hr>
-			<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-			<p> Station: {} </p>
-			'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
-				
-			msg = " ".join((msg, bodyMsg, msg_end))
-			
+				dataList = data.decode().split('\n')
+				head = dataList[0]
+				originalTCP = dataList[1].replace("Host: localhost:", "")
+				print("***************************************************")
+				print(originalTCP)
+				print("***************************************************")
+				if(len(requestHeader) == 0):
+					requestHeader = head
+					requestInfo = head.split(' ')
+					request_uri = requestInfo[1]
+					
+					
+					# get the Destination Station from recieved request
+					ls = request_uri.split('=')
+					ls.remove(ls[0])
+					part = "".join(ls)
+					ls2 = part.split('&')
+						
+					destinationStation = str(ls2[0])
+					
+					# get the Departure Time for the recieved request
+					now = datetime.now()
+					current_time = now.strftime("%H:%M:%S")
+					departureTime = current_time[0:5]
+					
+					
+					if(checkDirectRoute(destinationStation)):
+						route = nextAvailableRoute(departureTime, destinationStation)
+							
+						boardTime = route[0]
+						transportNumber = route[1]
+						stopPlatform = route[2]
+						arrivalTime = route[3]
+							
+						bodyMsg = ''' 
+						<p>There is a direct route to your desired station<p>
+						<h2>from {} to: {} </h2>
+						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+						<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+						<p> Time: {} </p>
+						<p> Station: {} </p>
+						<p> Platform/Stand: {} </p>
+							
+						<hr>
+						<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+						<p> Station: {} </p>
+						'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
+							
+						msg = " ".join((msg, bodyMsg, msg_end))
+					else:
+						# requires transfer to different station
+						h = requestHeader.split(" ")
+						uri = h[1]
+						
+						# get the Departure Time based on current time
+						if(uri.find("&") == -1):
+							now = datetime.now()
+							current_time = now.strftime("%H:%M:%S")
+							departureTime = current_time[0:5]
+						else:
+							# get time of arrival at transferred station (new departure time)
+							index = uri.rfind("%")
+							end_index = uri.rfind("!")
+							ct = uri[index+1: end_index]
+							departureTime = ct
+							
+						if(checkDirectRoute(destinationStation)):
+							print("is direct (through transfer)")
+							route = nextAvailableRoute(departureTime, destinationStation)
+							boardTime = route[0]
+							transportNumber = route[1]
+							stopPlatform = route[2]
+							arrivalTime = route[3]
+							
+							stop = stopPlatform
+							busNum = transportNumber
+							arrivTime = arrivTime
+						else:
+							# no direct route, must transfer
+							for neighbour in neighbours:
+								# The server adress to connect to
+								neighbour_address = ('localhost', neighbour)
+							
+								# append to current protocol/URL
+								h = requestHeader.split(" ")
+								uri = h[1]
+								new_uri = "".join((uri, "&through=", stationName, "%", departureTime, "!"))
+								new_requestHeader = " ".join((h[0], new_uri, h[2]))
+								# send request to UDP of neighbour
+								sockUDP.sendto(new_requestHeader.encode(), neighbour_address)
+							
 		else:
-			# requires transfer to different station
-			for neighbour in neighbours:
-				# The server adress to connect to
-				neighbour_address = ('localhost', neighbour)
+			# UDP Connection
+			data, addr = sockUDP.recvfrom(1024)
+			print("(UDP) Now Connected to:", addr)
+			print(data.decode())
+			print("__________________")
+			
+			if(len(requestHeader) == 0):
+				requestHeader = data.decode()
+				head = data.decode().split(' ')
+				request_uri = head[1]
+				ls = request_uri.split('=')
+				ls.remove(ls[0])
+				part = "".join(ls)
+				ls2 = part.split('&through')
+				for item in ls2:
+					print("---")
+					print(item)
 				
-				# append to current protocol/URL
-				h = requestHeader.split(" ")
-				uri = h[1]
-				new_uri = "".join((uri, "&through=", stationName))
-				new_requestHeader = " ".join((h[0], new_uri, h[2]))
-				# send request to UDP of neighbour
-				sockUDP.sendto(new_requestHeader.encode(), neighbour_address)
+				destinationStation = str(ls2[0])
+				
+				#if(checkDirectRoute(destinationStation)):
 	
-client_sock.send(msg.encode())
 	
-print("msg sent: \n" + msg)
 	
-# and closing connection, as we stated before
-client_sock.close()
+	client_sock.send(msg.encode())
+	client_sock.close()
