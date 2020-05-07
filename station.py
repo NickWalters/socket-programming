@@ -21,6 +21,9 @@ requestHeader = ""
 destinationStation = ""
 departureTime = ""
 
+UDPconnected = False
+TCPconnected = False
+
 # ARGUMENTS **********************************************************
 
 argcount = len(sys.argv)
@@ -112,6 +115,9 @@ def nextAvailableRoute(current_time, destinationStation):
 			print("Error: There is route that is beyond the current time. You have either missed the last bus, or there is no direct route")
 	else:
 		print("Error: There was no request from the Client to go Anywhere")
+		
+
+		
 
 # NETWORKING *********************************************************
 
@@ -162,6 +168,7 @@ while True:
 	for sock in readable:
 		if sock is sockTCP:
 			# TCP Connection
+			TCPconnected = True
 			client_sock, client_addr = sockTCP.accept()
 			print("(TCP) Now Connected to:", client_addr)
 			if client_sock:
@@ -171,11 +178,8 @@ while True:
 				dataList = data.decode().split('\n')
 				head = dataList[0]
 				originalTCP = dataList[1].replace("Host: localhost:", "")
-				print("***************************************************")
-				print(originalTCP)
-				print("***************************************************")
 				if(len(requestHeader) == 0):
-					requestHeader = head
+					requestHeader = data.decode()
 					requestInfo = head.split(' ')
 					request_uri = requestInfo[1]
 					
@@ -219,7 +223,8 @@ while True:
 						msg = " ".join((msg, bodyMsg, msg_end))
 					else:
 						# requires transfer to different station
-						h = requestHeader.split(" ")
+						ls = requestHeader.split("\n")
+						h = ls[0]
 						uri = h[1]
 						
 						# get the Departure Time based on current time
@@ -234,33 +239,25 @@ while True:
 							ct = uri[index+1: end_index]
 							departureTime = ct
 							
-						if(checkDirectRoute(destinationStation)):
-							print("is direct (through transfer)")
-							route = nextAvailableRoute(departureTime, destinationStation)
-							boardTime = route[0]
-							transportNumber = route[1]
-							stopPlatform = route[2]
-							arrivalTime = route[3]
+						# no direct route, must transfer
+						for neighbour in neighbours:
+							# The server adress to connect to
+							neighbour_address = ('localhost', neighbour)
 							
-							stop = stopPlatform
-							busNum = transportNumber
-							arrivTime = arrivTime
-						else:
-							# no direct route, must transfer
-							for neighbour in neighbours:
-								# The server adress to connect to
-								neighbour_address = ('localhost', neighbour)
+							# append to current protocol/URL
+							lines = requestHeader.split("\r")
+							h = lines[0].split(" ")
+							this_uri = str(h[1])
+							new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, "!"))
+								
 							
-								# append to current protocol/URL
-								h = requestHeader.split(" ")
-								uri = h[1]
-								new_uri = "".join((uri, "&through=", stationName, "%", departureTime, "!"))
-								new_requestHeader = " ".join((h[0], new_uri, h[2]))
-								# send request to UDP of neighbour
-								sockUDP.sendto(new_requestHeader.encode(), neighbour_address)
+							requestHeader = requestHeader.replace(this_uri, new_uri)
+							# send request to UDP of neighbour
+							sockUDP.sendto(requestHeader.encode(), neighbour_address)
 							
 		else:
 			# UDP Connection
+			UDPconnected = True
 			data, addr = sockUDP.recvfrom(1024)
 			print("(UDP) Now Connected to:", addr)
 			print(data.decode())
@@ -278,11 +275,32 @@ while True:
 					print("---")
 					print(item)
 				
+				stnName = "Black_Port"
 				destinationStation = str(ls2[0])
+				transportNumber = "76"
+				boardTime = "14:23"
+				stopPlatform = "3"
+				arrivalTime = "15:01"
+				
+				transferMsg = ''' 
+				<p> requires transfer <p>
+				<h2>from {} to: {} </h2>
+				<div style="background-color:red; border-style: solid" align="middle" class="center">
+				<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+				<p> Time: {} </p>
+				<p> Station: {} </p>
+				<p> Platform/Stand: {} </p>
+					
+				<hr>
+				<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+				<p> Station: {} </p>
+				'''.format(stnName, destinationStation, transportNumber, boardTime, stnName, stopPlatform, arrivalTime, destinationStation)
+				
+				
 				
 				#if(checkDirectRoute(destinationStation)):
 	
 	
-	
-	client_sock.send(msg.encode())
-	client_sock.close()
+	if(TCPconnected):
+		client_sock.send(msg.encode())
+		client_sock.close()
