@@ -4,12 +4,13 @@ import sys
 import socket
 from datetime import datetime
 from select import select
+import time
 
 # GLOBAL VARIABLES ***************************************************
 
 fullCommand = ''
 stationName = ""
-originalTCP = ""
+originalUDP = ""
 tcp_port = -1
 udp_port = -1
 neighbours = []
@@ -20,6 +21,7 @@ routes = []
 requestHeader = ""
 destinationStation = ""
 departureTime = ""
+arrivTime = ""
 
 UDPconnected = False
 TCPconnected = False
@@ -117,7 +119,28 @@ def nextAvailableRoute(current_time, destinationStation):
 		print("Error: There was no request from the Client to go Anywhere")
 		
 
-		
+
+def namesOfNeighbours():
+	namesOfNeighboursList = []
+	for route in routes:
+		if(len(namesOfNeighboursList) == 0):
+			namesOfNeighboursList.append(route[4])
+		else:
+			count = 0
+			for i in range(len(namesOfNeighboursList)):
+				if(route[4] == namesOfNeighboursList[i]):
+					count += 1
+			if(count == 0):
+				namesOfNeighboursList.append(route[4])
+	return namesOfNeighboursList
+	
+	
+def getOriginalUDP(uri):
+	ls = uri.split("#")
+	if(len(ls) == 2):
+		return ls[1]
+	else:
+		return originalUDP
 
 # NETWORKING *********************************************************
 
@@ -170,6 +193,7 @@ while True:
 			# TCP Connection
 			TCPconnected = True
 			client_sock, client_addr = sockTCP.accept()
+			originalUDP = str(udp_port)
 			print("(TCP) Now Connected to:", client_addr)
 			if client_sock:
 				data, addr = client_sock.recvfrom(1024)
@@ -205,6 +229,7 @@ while True:
 						transportNumber = route[1]
 						stopPlatform = route[2]
 						arrivalTime = route[3]
+						arrivTime = route[3]
 							
 						bodyMsg = ''' 
 						<p>There is a direct route to your desired station<p>
@@ -218,6 +243,7 @@ while True:
 						<hr>
 						<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
 						<p> Station: {} </p>
+						<p>END<p>
 						'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
 							
 						msg = " ".join((msg, bodyMsg, msg_end))
@@ -238,22 +264,58 @@ while True:
 							end_index = uri.rfind("!")
 							ct = uri[index+1: end_index]
 							departureTime = ct
+						
+						neighbourStns = namesOfNeighbours()
+						temp_route = nextAvailableRoute(departureTime, neighbourStns[0])
 							
-						# no direct route, must transfer
-						for neighbour in neighbours:
+				#SCAN ALL NEIGHBOURS *************************************************
+						for i in range(len(neighbourStns)):
+							thisNeigh = neighbours[i]
+							
+							# extract how long it takes to get to neighbour (and other info)
+							tmp_route = nextAvailableRoute(departureTime, neighbourStns[i])
+							
+							boardTime = tmp_route[0]
+							transportNumber = tmp_route[1]
+							stopPlatform = tmp_route[2]
+							arrivalTime = tmp_route[3]
+							arrivTime = tmp_route[3]
+							
 							# The server adress to connect to
-							neighbour_address = ('localhost', neighbour)
+							neighbour_address = ('localhost', thisNeigh)
 							
 							# append to current protocol/URL
 							lines = requestHeader.split("\r")
 							h = lines[0].split(" ")
 							this_uri = str(h[1])
-							new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, "!"))
+							new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, ">", arrivalTime, "#", originalUDP))
 								
 							
 							requestHeader = requestHeader.replace(this_uri, new_uri)
+							
+							bodyMsg = ''' 
+							<p>You Require Transfer(s)<p>
+							<h2>from {} to: {} </h2>
+							<div style="background-color:lightblue; border-style: solid" align="middle" class="center">
+							<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+							<p> Time: {} </p>
+							<p> Station: {} </p>
+							<p> Platform/Stand: {} </p>
+								
+							<hr>
+							<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+							<p> Station: {} </p>
+							<p>END<p>
+							'''.format(stationName, neighbourStns[i], transportNumber, boardTime, stationName, stopPlatform, arrivalTime, neighbourStns[i])
+							
 							# send request to UDP of neighbour
 							sockUDP.sendto(requestHeader.encode(), neighbour_address)
+							
+							originalUDP = getOriginalUDP(new_uri)
+							if(udp_port != originalUDP):
+								# send transfer information to client
+								sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
+							
 							
 		else:
 			# UDP Connection
@@ -263,44 +325,21 @@ while True:
 			print(data.decode())
 			print("__________________")
 			
-			if(len(requestHeader) == 0):
-				requestHeader = data.decode()
-				head = data.decode().split(' ')
-				request_uri = head[1]
-				ls = request_uri.split('=')
-				ls.remove(ls[0])
-				part = "".join(ls)
-				ls2 = part.split('&through')
-				for item in ls2:
-					print("---")
-					print(item)
-				
-				stnName = "Black_Port"
-				destinationStation = str(ls2[0])
-				transportNumber = "76"
-				boardTime = "14:23"
-				stopPlatform = "3"
-				arrivalTime = "15:01"
-				
-				transferMsg = ''' 
-				<p> requires transfer <p>
-				<h2>from {} to: {} </h2>
-				<div style="background-color:red; border-style: solid" align="middle" class="center">
-				<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-				<p> Time: {} </p>
-				<p> Station: {} </p>
-				<p> Platform/Stand: {} </p>
-					
-				<hr>
-				<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-				<p> Station: {} </p>
-				'''.format(stnName, destinationStation, transportNumber, boardTime, stnName, stopPlatform, arrivalTime, destinationStation)
+			request_header = data.decode()
+			if(request_header.find("<p>") != -1):
+				msg_body = data.decode()
+				msg = " ".join((msg, msg_body))
+				print("********************************")
+				print(msg)
+				print("********************************")
+			else:
+				lines = request_header.split('\n')
+				h = lines[0]
+				uri = h[1]
 				
 				
-				
-				#if(checkDirectRoute(destinationStation)):
-	
-	
-	if(TCPconnected):
+
+	if(TCPconnected and (msg.find("<p>END<p>") != -1)):
+		msg = "".join((msg, msg_end))
 		client_sock.send(msg.encode())
 		client_sock.close()
