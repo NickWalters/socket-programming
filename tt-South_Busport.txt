@@ -1,0 +1,16 @@
+South_Busport,-31.8448,115.7963
+07:15,12,Stop1,07:54,East_Station
+08:15,12,Stop1,08:46,East_Station
+09:20,12,Stop1,09:50,East_Station
+10:30,12,Stop1,11:00,East_Station
+12:30,12,Stop1,13:00,East_Station
+13:57,12,Stop1,14:25,East_Station
+14:20,12,Stop1,14:50,East_Station
+16:20,12,Stop1,16:50,East_Station
+18:20,12,Stop1,18:50,East_Station
+19:20,12,Stop1,19:50,East_Station
+20:20,12,Stop1,20:50,East_Station
+21:20,12,Stop1,21:50,East_Station
+22:20,12,Stop1,22:50,East_Station
+23:20,12,Stop1,23:50,East_Station
+23:59,12,Stop1,01:50,East_Station

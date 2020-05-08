@@ -158,6 +158,8 @@ def destStation(uri):
 	if(tmp.find("&through") != -1):
 	    tmp = tmp.replace("&through", "")
 	return(tmp)
+
+	
 	
 
 # NETWORKING *********************************************************
@@ -287,51 +289,12 @@ while True:
 							
 				#SCAN ALL NEIGHBOURS *************************************************
 						for i in range(len(neighbourStns)):
-							thisNeigh = neighbours[i]
+							thisNeigh = neighbours[i] #UDP of Neighbour
+							neighName = neighbourStns[i]
 							
-							# extract how long it takes to get to neighbour (and other info)
-							tmp_route = nextAvailableRoute(departureTime, neighbourStns[i])
+							destMessage = "".join((uri, "@", str(udp_port)))
+							sockUDP.sendto(destMessage.encode(), ('localhost', thisNeigh))
 							
-							boardTime = tmp_route[0]
-							transportNumber = tmp_route[1]
-							stopPlatform = tmp_route[2]
-							arrivalTime = tmp_route[3]
-							arrivTime = tmp_route[3]
-							
-							# The server adress to connect to
-							neighbour_address = ('localhost', thisNeigh)
-							
-							# append to current protocol/URL
-							lines = requestHeader.split("\r")
-							h = lines[0].split(" ")
-							this_uri = str(h[1])
-							new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, ">", arrivalTime, "#", originalUDP))
-								
-							
-							requestHeader = requestHeader.replace(this_uri, new_uri)
-							
-							bodyMsg = '''
-							<p>You Require Transfer(s)<p>
-							<h2>from {} to: {} </h2>
-							<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-							<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-							<p> Time: {} </p>
-							<p> Station: {} </p>
-							<p> Platform/Stand: {} </p>
-								
-							<hr>
-							<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-							<p> Station: {} </p>
-							</div>
-							'''.format(stationName, neighbourStns[i], transportNumber, boardTime, stationName, stopPlatform, arrivalTime, neighbourStns[i])
-							
-							# send request to UDP of neighbour
-							sockUDP.sendto(requestHeader.encode(), neighbour_address)
-							
-							originalUDP = getOriginalUDP(new_uri)
-							if(udp_port != originalUDP):
-								# send transfer information to client
-								sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
 							
 							
 		else:
@@ -347,9 +310,42 @@ while True:
 				msg = " ".join((msg, msg_body))
 				print("********************************")
 				print(msg)
-				print("********************************")
+				print("********************************")	
+			elif(data.decode().find("@") != -1):
+				ls = uri.split('@')
+				sendBackPort = ls[1]
+				ls.remove(ls[1])
+				line = "".join(ls)
+				line2 = line.split("=")	
+				line2.remove(line2[0])
+				if(line2[0].find("&through") != -1):
+					line2[0] = line2[0].replace("&through", "")
+					dStation = line2[0]
+					destinationStation = dStation		
+				if(checkDirectRoute(destinationStation)):
+					msg = "".join(("yesDirectRoute+", stationName))
+					sockUDP.sendto("yesDirectRoute+".encode(), ('localhost', int(sendBackPort))
+				else:
+					msg = "".join(("noDirectRoute-", stationName))
+					sockUDP.sendto("noDirectRoute-".encode(), ('localhost', int(sendBackPort)))
+					
+					
+					
+			elif(data.decode().find("Route+") != -1):
+				print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+				print(destinationStation)
+				print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+				tmp_route = nextAvailableRoute(departureTime, destinationStation)
+				
+				
+			elif(data.decode().find("Route-") != -1):
+				# do something
+				a = 1+1
+				
+				
 			else:
 				# currently at a transfer station
+				requestHeader = data.decode()
 				lines = data.decode().split('\r')
 				h = lines[0].split(" ")
 				uri = h[1]
@@ -364,6 +360,7 @@ while True:
 				
 				
 				destStn = destStation(uri)
+				destinationStation = destStn
 				if(checkDirectRoute(str(destStn))):
 					route = nextAvailableRoute(startTime, destStn)
 					
@@ -415,23 +412,5 @@ while True:
 		client_sock.send(msg.encode())
 		client_sock.close()
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+
 		

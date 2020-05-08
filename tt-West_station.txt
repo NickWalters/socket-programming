@@ -1,0 +1,16 @@
+West_Station,-31.9442,115.8771
+07:15,12,Stop1,07:54,Far_West_Station
+08:15,12,Stop1,08:46,Far_West_Station
+09:20,12,Stop1,09:50,Far_West_Station
+10:30,12,Stop1,11:00,Far_West_Station
+12:30,12,Stop1,13:00,Far_West_Station
+13:57,12,Stop1,14:25,Far_West_Station
+14:20,12,Stop1,14:50,Far_West_Station
+16:20,12,Stop1,16:50,Far_West_Station
+18:20,12,Stop1,18:50,Far_West_Station
+19:20,12,Stop1,19:50,Far_West_Station
+20:20,12,Stop1,20:50,Far_West_Station
+21:20,12,Stop1,21:50,Far_West_Station
+22:20,12,Stop1,22:50,Far_West_Station
+23:20,12,Stop1,23:50,Far_West_Station
+23:59,12,Stop1,01:50,Far_West_Station

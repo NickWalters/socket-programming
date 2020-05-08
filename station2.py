@@ -4,7 +4,7 @@ import sys
 import socket
 from datetime import datetime
 from select import select
-import Queue
+import time
 
 # GLOBAL VARIABLES ***************************************************
 
@@ -284,6 +284,7 @@ while True:
 							departureTime = ct
 						
 						neighbourStns = namesOfNeighbours()
+						temp_route = nextAvailableRoute(departureTime, neighbourStns[0])
 							
 				#SCAN ALL NEIGHBOURS *************************************************
 						for i in range(len(neighbourStns)):
@@ -393,10 +394,7 @@ while True:
 					if(udp_port != originalUDP):
 						# send transfer information to client
 						sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
-						
 				else:
-					a = 1+1
-					"""
 					# requires another transfer
 					neighbourStns = namesOfNeighbours()
 					temp_route = nextAvailableRoute(departureTime, neighbourStns[0])
@@ -404,7 +402,6 @@ while True:
 					for i in range(len(neighbourStns)):
 						thisNeigh = neighbours[i]
 						print(thisNeigh)
-					"""
 					
 				
 				
