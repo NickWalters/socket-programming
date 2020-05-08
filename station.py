@@ -68,15 +68,20 @@ routes.remove(routes[0])
 file1.close()
 
 
+# FUNCTIONS **********************************************************
 
 def checkDirectRoute(station):
-	if(len(destinationStation) > 0):
-		for route in routes:
-			if(station == route[4]):
-				return True
-		return False
-	else:
-		print("Error: There was no request from the Client to go Anywhere")
+	print(station)
+	print(len(station))
+	for route in routes:
+		print("------------------------")
+		print(route[4])
+		print(len(route[4]))
+		if(station == route[4]):
+			print("found direct route")
+			return True
+	print("didnt find direct route")
+	return False
 
 
 
@@ -85,12 +90,14 @@ def checkDirectRoute(station):
 # Finds the closest/nearest bus or train from this current station
 # needs to be a direct route	
 # @return 	returns a route, which is a list
-def nextAvailableRoute(current_time, destinationStation):
+def nextAvailableRoute(current_time, destnStation):
 	possibleBoardingTimes = []
-	
-	if(len(destinationStation) > 0):
+	print("test1")
+	if(len(destnStation) > 0):
+		print("test2")
 		for this_route in reversed(routes):
-			if(this_route[4] == destinationStation):
+			if(this_route[4] == destnStation):
+				print("test3")
 				# current time
 				now = datetime.now()
 				my_time_string = "".join((current_time, ":00"))
@@ -107,6 +114,7 @@ def nextAvailableRoute(current_time, destinationStation):
 				# checks if this departure time is above current time
 				if(this_datetime >= my_datetime):
 					possibleBoardingTimes.append(this_route)
+					print("test4")
 						
 		if(len(possibleBoardingTimes) > 0):
 			possibleBoardingTimes.reverse()
@@ -141,6 +149,16 @@ def getOriginalUDP(uri):
 		return ls[1]
 	else:
 		return originalUDP
+
+
+def destStation(uri):
+	ls = uri.split("=")
+	ls.remove(ls[0])
+	tmp = ls[0]
+	if(tmp.find("&through") != -1):
+	    tmp = tmp.replace("&through", "")
+	return(tmp)
+	
 
 # NETWORKING *********************************************************
 
@@ -293,10 +311,10 @@ while True:
 							
 							requestHeader = requestHeader.replace(this_uri, new_uri)
 							
-							bodyMsg = ''' 
+							bodyMsg = '''
 							<p>You Require Transfer(s)<p>
 							<h2>from {} to: {} </h2>
-							<div style="background-color:lightblue; border-style: solid" align="middle" class="center">
+							<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
 							<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
 							<p> Time: {} </p>
 							<p> Station: {} </p>
@@ -305,7 +323,7 @@ while True:
 							<hr>
 							<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
 							<p> Station: {} </p>
-							<p>END<p>
+							</div>
 							'''.format(stationName, neighbourStns[i], transportNumber, boardTime, stationName, stopPlatform, arrivalTime, neighbourStns[i])
 							
 							# send request to UDP of neighbour
@@ -325,17 +343,58 @@ while True:
 			print(data.decode())
 			print("__________________")
 			
-			request_header = data.decode()
-			if(request_header.find("<p>") != -1):
+			if(data.decode().find("<p>") != -1):
 				msg_body = data.decode()
 				msg = " ".join((msg, msg_body))
 				print("********************************")
 				print(msg)
 				print("********************************")
 			else:
-				lines = request_header.split('\n')
-				h = lines[0]
+				# currently at a transfer station
+				lines = data.decode().split('\r')
+				h = lines[0].split(" ")
 				uri = h[1]
+				startTime = ""
+				
+				if(uri.rfind(">") != -1):
+					index = uri.rfind(">")
+					end_index = uri.rfind("#")
+					startTime = uri[index+1: end_index]
+				else:
+					print("Error: There is no '>' arrival time")
+				
+				
+				destStn = destStation(uri)
+				if(checkDirectRoute(str(destStn))):
+					route = nextAvailableRoute(startTime, destStn)
+					
+					boardTime = route[0]
+					transportNumber = route[1]
+					stopPlatform = route[2]
+					arrivalTime = route[3]
+					arrivTime = route[3]
+				
+					bodyMsg = '''
+					<h2>from {} to: {} </h2>
+					<div style="background-color:lightblue; border-style: solid" align="middle" class="center">
+					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+					<p> Time: {} </p>
+					<p> Station: {} </p>
+					<p> Platform/Stand: {} </p>
+						
+					<hr>
+					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+					<p> Station: {} </p>
+					</div>
+					<p>END<p>'''.format(stationName, destStn, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destStn)
+					
+					print(bodyMsg)
+					
+					originalUDP = getOriginalUDP(uri)
+					if(udp_port != originalUDP):
+						# send transfer information to client
+						sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
+				
 				
 				
 
