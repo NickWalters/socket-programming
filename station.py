@@ -200,7 +200,8 @@ Connection: Closed
 
 <html>
 <body>
-<h2>Welcome to Public Transport Navigation Service</h2>
+<h2>Welcome to Transperth</h2>
+<img src="https://cdn.businessnews.com.au/styles/wabn_kb_company_logo/public/transperth.jpg?itok=8dMAeY3K" alt="transperth" width="384" height="80">
 <h4> Your route is as follows: <h4>
 <hr>
 '''
@@ -296,7 +297,6 @@ while inputs:
 						'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
 							
 						msg = " ".join((msg, bodyMsg, msg_end))
-						inputs.clear()
 					else:
 						# requires transfer to different station
 						uri = request_uri
