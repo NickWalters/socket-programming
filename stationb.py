@@ -4,7 +4,7 @@ import sys
 import socket
 from datetime import datetime
 from select import select
-import time
+import Queue
 
 # GLOBAL VARIABLES ***************************************************
 
@@ -22,8 +22,6 @@ requestHeader = ""
 destinationStation = ""
 departureTime = ""
 arrivTime = ""
-working_withUDP = -1
-neighbourIncrement = 0
 
 UDPconnected = False
 TCPconnected = False
@@ -93,8 +91,6 @@ def checkDirectRoute(station):
 # needs to be a direct route	
 # @return 	returns a route, which is a list
 def nextAvailableRoute(current_time, destnStation):
-	print("@@@")
-	print(current_time)
 	possibleBoardingTimes = []
 	print("test1")
 	if(len(destnStation) > 0):
@@ -149,8 +145,10 @@ def namesOfNeighbours():
 	
 def getOriginalUDP(uri):
 	ls = uri.split("#")
-	print(ls[1])
-	return ls[1]
+	if(len(ls) == 2):
+		return ls[1]
+	else:
+		return originalUDP
 
 
 def destStation(uri):
@@ -162,28 +160,20 @@ def destStation(uri):
 	return(tmp)
 	
 
-def scanAllNeighbours(checkmsg, index):
+def scanAllNeighbours:
 	neighbourStns = namesOfNeighbours()
-	for n in neighbourStns:
-		print n
-		print("----------")
 	for i in range(len(neighbourStns)):
-		if(index != i):
-			thisNeigh = neighbours[i] # UDP of Neighbour
-			neighName = neighbourStns[i] # name of neighbour
-			checkmsg = "".join((checkmsg, "@"))
-			sockUDP.sendto(checkmsg.encode(), ('localhost', thisNeigh))
-		else:
-			continue
+		thisNeigh = neighbours[i] # UDP of Neighbour
+		neighName = neighbourStns[i] # name of neighbour
+		
+		check-msg = "".join((destinationStation, "@"))
+		sockUDP.sendto(check-msg.encode(), ('localhost', thisNeigh))
 
-
-def getNeighbour():
-	neighbourStns = namesOfNeighbours()
 
 def arrivalTime(uri):
 	if(uri.rfind(">") != -1):
 		index = uri.rfind(">")
-		end_index = index + 6
+		end_index = uri.rfind("#")
 		startTime = uri[index+1: end_index]
 		return startTime
 	else:
@@ -230,11 +220,11 @@ sockTCP.listen(20)
 
 request = ''
 
-inputs = [sockTCP, sockUDP]
+input = [sockTCP, sockUDP]
 outputs = []
 
-while inputs:
-	readable, writable, exceptions = select(inputs, [], [])
+while True:
+	readable, writable, exceptions = select(input, [], [])
 	
 	for sock in readable:
 		if sock is sockTCP:
@@ -271,7 +261,6 @@ while inputs:
 					
 					
 					if(checkDirectRoute(destinationStation)):
-						print("This is a testing line")
 						route = nextAvailableRoute(departureTime, destinationStation)
 							
 						boardTime = route[0]
@@ -280,7 +269,7 @@ while inputs:
 						arrivalTime = route[3]
 						arrivTime = route[3]
 							
-						bodyMsg = '''
+						bodyMsg = ''' 
 						<p>There is a direct route to your desired station<p>
 						<h2>from {} to: {} </h2>
 						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
@@ -296,10 +285,11 @@ while inputs:
 						'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
 							
 						msg = " ".join((msg, bodyMsg, msg_end))
-						inputs.clear()
 					else:
 						# requires transfer to different station
-						uri = request_uri
+						ls = requestHeader.split("\n")
+						h = ls[0]
+						uri = h[1]
 						
 						# get the Departure Time based on current time
 						if(uri.find("&") == -1):
@@ -313,45 +303,64 @@ while inputs:
 							ct = uri[index+1: end_index]
 							departureTime = ct
 						
-						
-						nms = namesOfNeighbours()
-						dstn = nms[neighbourIncrement]
-						# arrival time to neighbour
-						rt = nextAvailableRoute(departureTime, dstn)
-						arvl = rt[3]
-						transportNumber = rt[1]
-						stopPlatform = rt[2]
-											
-						
-						bMsg = '''
-						<p>You Require Transfer(s)<p>
-						<h2>from {} to: {} </h2>
-						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-						<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-						<p> Time: {} </p>
-						<p> Station: {} </p>
-						<p> Platform/Stand: {} </p>
-							
-						<hr>
-						<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-						<p> Station: {} </p>
-						</div>
-						'''.format(stationName, dstn, transportNumber, departureTime, stationName, stopPlatform, arvl, dstn)
-						
-						sockUDP.sendto(bMsg.encode(), ('localhost', udp_port))
-							
-						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "#", str(udp_port), "#"))
+						neighbourStns = namesOfNeighbours()
+				
+				#SCAN ALL NEIGHBOURS *************************************************
+						scanAllNeighbours()
 							
 				#SCAN ALL NEIGHBOURS *************************************************
-						scanAllNeighbours(new_uri, neighbourIncrement)
+						for i in range(len(neighbourStns)):
+							thisNeigh = neighbours[i]
 							
+							# extract how long it takes to get to neighbour (and other info)
+							tmp_route = nextAvailableRoute(departureTime, neighbourStns[i])
+							
+							boardTime = tmp_route[0]
+							transportNumber = tmp_route[1]
+							stopPlatform = tmp_route[2]
+							arrivalTime = tmp_route[3]
+							arrivTime = tmp_route[3]
+							
+							# The server adress to connect to
+							neighbour_address = ('localhost', thisNeigh)
+							
+							# append to current protocol/URL
+							lines = requestHeader.split("\r")
+							h = lines[0].split(" ")
+							this_uri = str(h[1])
+							new_uri = "".join((this_uri, "&through=", stationName, "%", departureTime, ">", arrivalTime, "#", originalUDP))
+								
+							
+							requestHeader = requestHeader.replace(this_uri, new_uri)
+							
+							bodyMsg = '''
+							<p>You Require Transfer(s)<p>
+							<h2>from {} to: {} </h2>
+							<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+							<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+							<p> Time: {} </p>
+							<p> Station: {} </p>
+							<p> Platform/Stand: {} </p>
+								
+							<hr>
+							<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+							<p> Station: {} </p>
+							</div>
+							'''.format(stationName, neighbourStns[i], transportNumber, boardTime, stationName, stopPlatform, arrivalTime, neighbourStns[i])
+							
+							# send request to UDP of neighbour
+							sockUDP.sendto(requestHeader.encode(), neighbour_address)
+							
+							originalUDP = getOriginalUDP(new_uri)
+							if(udp_port != originalUDP):
+								# send transfer information to client
+								sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
 							
 							
 		else:
 			# UDP Connection
 			UDPconnected = True
 			data, addr = sockUDP.recvfrom(1024)
-			working_withUDP = addr
 			print("(UDP) Now Connected to:", addr)
 			print(data.decode())
 			print("__________________")
@@ -363,70 +372,44 @@ while inputs:
 				print(msg)
 				print("********************************")
 				
-			# request scan to neighbour, with flag @
+				
 			elif(data.decode().find("@") != -1):
-				uri = data.decode()
+				fromPort = addr
+				destinationStation = data.decode().remove("@", "")
 				
-				# fromPort = addr
-				
-				destinationStation = destStation(uri)
 				if(checkDirectRoute(destinationStation)):
-					arv = arrivalTime(uri)
-					departureTime = arv
+					arrivalTime(uri)
+					tmp_route = nextAvailableRoute(departureTime, destinationStation)
 					
-					print("this is another testing line")
-					tmp_route = nextAvailableRoute(arv, destinationStation)
-					
-					boardTime = tmp_route[0]
-					transportNumber = tmp_route[1]
-					stopPlatform = tmp_route[2]
-					arrivalTime = tmp_route[3]
-					arrivTime = tmp_route[3]
-					
-					bodyMsg = '''
-					<h2>from {} to: {} </h2>
-					<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-					<p> Time: {} </p>
-					<p> Station: {} </p>
-					<p> Platform/Stand: {} </p>
-						
-					<hr>
-					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-					<p> Station: {} </p>
-					</div>
-					<p>END<p>
-					'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
-					
-					originalUDP = getOriginalUDP(uri)
-					sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
-					
+					msg = "".join(("yesDirectRoute+", stationName))
+					sockUDP.sendto("yesDirectRoute+".encode(), ('localhost', fromPort))
 				else:
-					originalUDP = getOriginalUDP(uri)
-					messg = "".join((uri, "noDirectRoute--"))
-					sockUDP.sendto(messg.encode(), working_withUDP)
-					#new_uri = "".join((uri, "&through=", stationName)
-					#scanAllNeighbours(new_uri)
+					msg = "".join(("noDirectRoute-", stationName))
+					sockUDP.sendto("noDirectRoute-".encode(), ('localhost', fromPort))
+				
+			elif(data.decode().find("Route+") != -1):
+				a = 1+1
+				
 			
-			elif(data.decode().find("Route--")):
-				uri = data.decode().replace("Route--", "")
-				neighbourIncrement += 1
-				scanAllNeighbours(uri, neighbourIncrement)		
+			elif(data.decode().find("Route-") != -1):
+				a = 1+1
+				
 			else:
 				# currently at a transfer station
-				uri = data.decode().split('\r')
+				lines = data.decode().split('\r')
+				h = lines[0].split(" ")
+				uri = h[1]
 				startTime = ""
 				
 				if(uri.rfind(">") != -1):
 					index = uri.rfind(">")
-					end_index = index + 6
+					end_index = uri.rfind("#")
 					startTime = uri[index+1: end_index]
 				else:
 					print("Error: There is no '>' arrival time")
 				
 				
 				destStn = destStation(uri)
-				destinationStation = destStn
 				if(checkDirectRoute(str(destStn))):
 					route = nextAvailableRoute(startTime, destStn)
 					
@@ -456,6 +439,19 @@ while inputs:
 					if(udp_port != originalUDP):
 						# send transfer information to client
 						sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
+						
+				else:
+					for 
+					"""
+					# requires another transfer
+					neighbourStns = namesOfNeighbours()
+					temp_route = nextAvailableRoute(departureTime, neighbourStns[0])
+					
+					for i in range(len(neighbourStns)):
+						thisNeigh = neighbours[i]
+						print(thisNeigh)
+					"""
+					
 				
 				
 				
@@ -464,3 +460,24 @@ while inputs:
 		msg = "".join((msg, msg_end))
 		client_sock.send(msg.encode())
 		client_sock.close()
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
