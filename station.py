@@ -73,12 +73,7 @@ file1.close()
 # FUNCTIONS **********************************************************
 
 def checkDirectRoute(station):
-	print(station)
-	print(len(station))
 	for route in routes:
-		print("------------------------")
-		print(route[4])
-		print(len(route[4]))
 		if(station == route[4]):
 			print("found direct route")
 			return True
@@ -96,12 +91,9 @@ def nextAvailableRoute(current_time, destnStation):
 	print("@@@")
 	print(current_time)
 	possibleBoardingTimes = []
-	print("test1")
 	if(len(destnStation) > 0):
-		print("test2")
 		for this_route in reversed(routes):
 			if(this_route[4] == destnStation):
-				print("test3")
 				# current time
 				now = datetime.now()
 				my_time_string = "".join((current_time, ":00"))
@@ -118,12 +110,12 @@ def nextAvailableRoute(current_time, destnStation):
 				# checks if this departure time is above current time
 				if(this_datetime >= my_datetime):
 					possibleBoardingTimes.append(this_route)
-					print("test4")
 						
 		if(len(possibleBoardingTimes) > 0):
 			possibleBoardingTimes.reverse()
-			for time in possibleBoardingTimes:
-				print(time)
+			for item in possibleBoardingTimes:
+				print("*********************")
+				print item
 			return possibleBoardingTimes[0]
 		else:
 			print("Error: There is route that is beyond the current time. You have either missed the last bus, or there is no direct route")
@@ -164,11 +156,11 @@ def destStation(uri):
 
 def scanAllNeighbours(checkmsg, index):
 	neighbourStns = namesOfNeighbours()
-	for n in neighbourStns:
-		print n
-		print("----------")
+	for stn in neighbourStns:
+		print(stn)
+		print("------------------------")
 	for i in range(len(neighbourStns)):
-		if(index != i):
+		if(index == i):
 			thisNeigh = neighbours[i] # UDP of Neighbour
 			neighName = neighbourStns[i] # name of neighbour
 			checkmsg = "".join((checkmsg, "@"))
@@ -205,6 +197,8 @@ Connection: Closed
 <h4> Your route is as follows: <h4>
 <hr>
 '''
+
+trs_msg = '''<p></p>'''
 
 msg_end = '''</body>
 </html>'''
@@ -282,6 +276,7 @@ while inputs:
 						arrivTime = route[3]
 							
 						bodyMsg = '''
+						<p>START</p>
 						<p>There is a direct route to your desired station<p>
 						<h2>from {} to: {} </h2>
 						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
@@ -293,7 +288,7 @@ while inputs:
 						<hr>
 						<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
 						<p> Station: {} </p>
-						<p>END<p>
+						<p>END</p>
 						'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
 							
 						msg = " ".join((msg, bodyMsg, msg_end))
@@ -302,47 +297,26 @@ while inputs:
 						uri = request_uri
 						
 						# get the Departure Time based on current time
-						if(uri.find("&") == -1):
-							now = datetime.now()
-							current_time = now.strftime("%H:%M:%S")
-							departureTime = current_time[0:5]
-						else:
-							# get time of arrival at transferred station (new departure time)
-							index = uri.rfind("%")
-							end_index = uri.rfind("!")
-							ct = uri[index+1: end_index]
-							departureTime = ct
+						now = datetime.now()
+						current_time = now.strftime("%H:%M:%S")
+						departureTime = current_time[0:5]
 						
 						
+						# Get a list of all the neighbours
 						nms = namesOfNeighbours()
 						dstn = nms[neighbourIncrement]
-						# arrival time to neighbour
+						
+						# calculate a route to the neighbour
 						rt = nextAvailableRoute(departureTime, dstn)
 						arvl = rt[3]
 						transportNumber = rt[1]
 						stopPlatform = rt[2]
-											
 						
-						bMsg = '''
-						<p>You Require Transfer(s)<p>
-						<h2>from {} to: {} </h2>
-						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-						<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-						<p> Time: {} </p>
-						<p> Station: {} </p>
-						<p> Platform/Stand: {} </p>
-							
-						<hr>
-						<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-						<p> Station: {} </p>
-						</div>
-						'''.format(stationName, dstn, transportNumber, departureTime, stationName, stopPlatform, arvl, dstn)
-						
-						sockUDP.sendto(bMsg.encode(), ('localhost', udp_port))
-							
 						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "#", str(udp_port), "#"))
+						# if i am dealing with multiple station transfers, I need to strip this station information from the URI if there is no route through this station
 							
-				#SCAN ALL NEIGHBOURS *************************************************
+				#SCAN A NEIGHBOUR *************************************************
+						print("_______________55443322244")
 						scanAllNeighbours(new_uri, neighbourIncrement)
 							
 							
@@ -356,19 +330,71 @@ while inputs:
 			print(data.decode())
 			print("__________________")
 			
+			# If the recieved data contains HTML, then choose how to display it
 			if(data.decode().find("<p>") != -1):
-				msg_body = data.decode()
-				msg = " ".join((msg, msg_body))
-				print("********************************")
-				print(msg)
-				print("********************************")
+				if(data.decode().find("<p>START</p>") != -1):
+					msg_body = data.decode()
+					msg = " ".join((trs_msg, msg_body))
+					print(msg)
+				else:
+					msg_body = data.decode()
+					msg = " ".join((msg, msg_body))
+					print(msg)
 				
+			elif(data.decode().find("~Finished") != -1):
+				end = data.decode().rfind("~")
+				tmp = data.decode()
+				dstn = tmp[0:end]
+				
+				print("##############################################")
+				print(dstn)
+				print("##############################################")
+				now = datetime.now()
+				current_time = now.strftime("%H:%M:%S")
+				departureTime = current_time[0:5]
+				rt = nextAvailableRoute(departureTime, dstn)
+				arvl = rt[3]
+				transportNumber = rt[1]
+				stopPlatform = rt[2]
+				
+				bMsg = '''
+				<p>START</p>
+				<p>You Require Transfer(s)<p>
+				<h2>from {} to: {} </h2>
+				<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+				<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+				<p> Time: {} </p>
+				<p> Station: {} </p>
+				<p> Platform/Stand: {} </p>
+					
+				<hr>
+				<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+				<p> Station: {} </p>
+				</div>
+				'''.format(stationName, dstn, transportNumber, departureTime, stationName, stopPlatform, arvl, dstn)
+				
+				msg = "".join((msg, bMsg))
+			
+			
+			# if the data returned from a neighbour doesn't have a direct route, scan next neighbour
+			elif(data.decode().find("noDirectRoute--") != -1):
+				dat = data.decode()
+				inx = dat.rfind('--')
+				endinx = data.rfind('++')
+				udp_org = dat[inx+2: endinx]
+				
+				if(int(udp_org) == udp_port):
+					indx = dat.index("noDirectRoute")
+					uri = dat[0:indx]
+					neighbourIncrement += 1
+					scanAllNeighbours(uri, neighbourIncrement)
+					
+									
 			# request scan to neighbour, with flag @
 			elif(data.decode().find("@") != -1):
 				uri = data.decode()
 				
-				# fromPort = addr
-				
+				#check if the neighbour has direct route, if so, then send HTML info
 				destinationStation = destStation(uri)
 				if(checkDirectRoute(destinationStation)):
 					arv = arrivalTime(uri)
@@ -384,6 +410,7 @@ while inputs:
 					arrivTime = tmp_route[3]
 					
 					bodyMsg = '''
+					<p>Transfer</p>
 					<h2>from {} to: {} </h2>
 					<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
 					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
@@ -395,72 +422,26 @@ while inputs:
 					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
 					<p> Station: {} </p>
 					</div>
-					<p>END<p>
+					<p>END</p>
 					'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
 					
 					originalUDP = getOriginalUDP(uri)
+					
+					fmsg = "".join((stationName, "~Finished"))
+					sockUDP.sendto(fmsg.encode(), ('localhost', int(originalUDP)))
+					
 					sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
 					
 				else:
+					# neighbour doesn't have a direct route, so tell the requester this. So that requester can move onto the next neighbour
 					originalUDP = getOriginalUDP(uri)
-					messg = "".join((uri, "noDirectRoute--"))
+					messg = "".join((uri, "noDirectRoute--", str(working_withUDP[1]), "++"))
 					sockUDP.sendto(messg.encode(), working_withUDP)
-					#new_uri = "".join((uri, "&through=", stationName)
-					#scanAllNeighbours(new_uri)
-			
-			elif(data.decode().find("Route--")):
-				uri = data.decode().replace("Route--", "")
-				neighbourIncrement += 1
-				scanAllNeighbours(uri, neighbourIncrement)		
-			else:
-				# currently at a transfer station
-				uri = data.decode().split('\r')
-				startTime = ""
-				
-				if(uri.rfind(">") != -1):
-					index = uri.rfind(">")
-					end_index = index + 6
-					startTime = uri[index+1: end_index]
-				else:
-					print("Error: There is no '>' arrival time")
-				
-				
-				destStn = destStation(uri)
-				destinationStation = destStn
-				if(checkDirectRoute(str(destStn))):
-					route = nextAvailableRoute(startTime, destStn)
-					
-					boardTime = route[0]
-					transportNumber = route[1]
-					stopPlatform = route[2]
-					arrivalTime = route[3]
-					arrivTime = route[3]
-				
-					bodyMsg = '''
-					<h2>from {} to: {} </h2>
-					<div style="background-color:lightblue; border-style: solid" align="middle" class="center">
-					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
-					<p> Time: {} </p>
-					<p> Station: {} </p>
-					<p> Platform/Stand: {} </p>
-						
-					<hr>
-					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
-					<p> Station: {} </p>
-					</div>
-					<p>END<p>'''.format(stationName, destStn, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destStn)
-					
-					print(bodyMsg)
-					
-					originalUDP = getOriginalUDP(uri)
-					if(udp_port != originalUDP):
-						# send transfer information to client
-						sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
 				
 				
 				
 
-	if(TCPconnected and (msg.find("<p>END<p>") != -1)):
-		msg = "".join((msg, msg_end))
+	if(TCPconnected and (msg.find("<p>END</p>") != -1)):
+		msg = "".join((msg, trs_msg, msg_end))
 		client_sock.send(msg.encode())
 		client_sock.close()
