@@ -17,6 +17,12 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+#include <iostream>
+#include <string>
+#include <fstream>
 
-#define PORT 5000 
-#define MAXLINE 1024 
+
+#define MAXLINE 1024
+#define BUFFER_SIZE   1024
+#define MAX_STATIONS 100
+

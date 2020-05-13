@@ -1,5 +1,12 @@
 #include "server.h"
 
+using namespace std;
+
+int PORT = 0;
+int UDP_PORT = 0;
+string stationName = "";
+string neighbours[MAX_STATIONS];
+bool TCPconnected = false;
 
 int max(int x, int y) 
 { 
@@ -11,15 +18,46 @@ int max(int x, int y)
 
 
 
-int main() 
+int main(int argc, char *argv[]) 
 { 
+	if(argc < 2){
+		fprintf(stderr,"ERROR, no port provided\n");
+		exit(1);
+	}
+	else{
+		for(int i=1; i<argc; ++i){
+			if(i==0){
+				continue;
+			}
+			if(i == 1){
+				stationName = argv[1];
+				cout << "Station Name is: ";
+				cout << stationName << "\n";
+			}
+			if(i == 2){
+				PORT = atoi(argv[2]);
+				cout << "TCP PORT NUMBER: ";
+				cout << PORT << "\n";
+			}
+			if(i == 3){
+				UDP_PORT = atoi(argv[3]);
+				cout << "UDP PORT NUMBER: " ;
+				cout << UDP_PORT << "\n";
+			}
+			else{
+				int index = i - 4;
+				neighbours[i] = argv[i];
+			}
+		}
+	}
+		
 	int listenfd, connfd, udpfd, nready, maxfdp1; 
 	char buffer[MAXLINE]; 
 	pid_t childpid; 
 	fd_set rset; 
 	ssize_t n; 
 	socklen_t len; 
-	const int on = 1; 
+	/* const int on = 1; */
 	struct sockaddr_in cliaddr, servaddr; 
 	char* message = "Hello Client"; 
 	void sig_chld(int); 
@@ -58,16 +96,14 @@ int main()
 		// it by accepting the connection 
 		if (FD_ISSET(listenfd, &rset)) { 
 			len = sizeof(cliaddr); 
-			connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &len); 
+			connfd = accept(listenfd, (struct sockaddr*)&cliaddr, &len);
+			TCPconnected = true; 
 			if ((childpid = fork()) == 0) { 
 				close(listenfd); 
 				bzero(buffer, sizeof(buffer)); 
-				printf("Message From TCP client: "); 
+				printf("Message From TCP client: ");
 				read(connfd, buffer, sizeof(buffer)); 
 				puts(buffer); 
-				write(connfd, (const char*)message, sizeof(buffer)); 
-				close(connfd); 
-				exit(0); 
 			} 
 			close(connfd); 
 		} 
@@ -82,5 +118,10 @@ int main()
 			sendto(udpfd, (const char*)message, sizeof(buffer), 0, 
 				   (struct sockaddr*)&cliaddr, sizeof(cliaddr)); 
 		} 
-	} 
+	}
+	if(TCPconnected == true){
+		write(connfd, (const char*)message, sizeof(buffer));
+		close(connfd); 
+		exit(0); 
+	}
 } 
