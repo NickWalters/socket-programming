@@ -178,6 +178,7 @@ def scanAllNeighbours(checkmsg, index):
 def getNeighbour():
 	neighbourStns = namesOfNeighbours()
 
+
 def arrivalTime(uri):
 	if(uri.rfind(">") != -1):
 		index = uri.rfind(">")
@@ -351,10 +352,11 @@ while inputs:
 					msg = " ".join((msg, msg_body))
 					print(msg)
 			
-			elif(data.decode().rfind("~Finished") != -1):
+			elif(data.decode().rfind("~") != -1):
 				uri = data.decode()
+				'''
 				while(uri.find("--notDirect--") != -1):
-					uri.replace("--notDirect--", "")
+					uri.replace("--notDirect--", "")'''
 				print("FOUND DESTINATION _____________________________")
 				print(uri)
 				
@@ -385,7 +387,7 @@ while inputs:
 					arrival = rt[3]
 					
 					originalUDP = getOriginalUDP(uri)
-					newURI = "".join((uri, "&through=", stationName, ">", arrival, "~Finished"))		
+					newURI = "".join((uri, "&through=", stationName, ">", arrival, "~~"))		
 					sockUDP.sendto(newURI.encode(), ('localhost', int(originalUDP)))
 					
 				elif(data.decode().find("--notDirect--") != -1):
