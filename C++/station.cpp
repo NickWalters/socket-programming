@@ -36,6 +36,7 @@ int max(int x, int y)
 } 
 
 
+
 int main(int argc, char const *argv[]) 
 {   
     // ARGUMENTS____________________________________________________________
@@ -51,7 +52,6 @@ int main(int argc, char const *argv[])
     
     // READING STATION INFO_________________________________________________
     string text;
-    int routeCount = 0;
     
     string flname = "tt-" + stationName + ".txt";
     cout << "____________________________txt file name \n";
@@ -60,20 +60,14 @@ int main(int argc, char const *argv[])
     
     ifstream MyReadFile(flname);
     while(getline (MyReadFile, text)){
-        cout << text + "\n"
-        routeCount = routeCount + 1;
+        cout << text + "\n";
     }
     MyReadFile.close();
     
-    string routes[routeCount];
-    
-    
-    cout << "____________________________" + routeCount; 
-    
     
     // NETWORKING____________________________________________________________
-    char msg[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-4 \r\n\r\n<h1>This is the msg from the server</h1>";
-    
+    char msg[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-4 \r\n\r\n<html><body><h2>Welcome to Transperth</h2><img src='https://cdn.businessnews.com.au/styles/wabn_kb_company_logo/public/transperth.jpg?itok=8dMAeY3K' alt='transperth' width='384' height='80'><h4> Your route is as follows: <h4><hr>";
+
     int listenfd, connfd, udpfd, nready, maxfdp1; 
     char buffer[MAXLINE]; 
     pid_t childpid; 
@@ -123,15 +117,13 @@ int main(int argc, char const *argv[])
             if ((childpid = fork()) == 0) { 
                 close(listenfd); 
                 bzero(buffer, sizeof(buffer)); 
-                printf("Message From TCP client: "); 
+                printf("Message From TCP client: ");
                 read(connfd, buffer, sizeof(buffer));
                 puts(buffer); 
                 send(connfd, msg, strlen(msg), 0);
                 close(connfd); 
                 exit(0);
             } 
-            close(connfd);
-            break;
         } 
         // if udp socket is readable receive the message. 
         if (FD_ISSET(udpfd, &rset)) { 
@@ -144,5 +136,7 @@ int main(int argc, char const *argv[])
             sendto(udpfd, (const char*)message, sizeof(buffer), 0, 
                    (struct sockaddr*)&cliaddr, sizeof(cliaddr)); 
         } 
+        close(connfd);
+        break;
     } 
 } 

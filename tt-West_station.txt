@@ -18,6 +18,7 @@ West_Station,-31.9442,115.8771
 21:20,12,Stop1,21:50,Far_West_Station
 22:19,12,Stop1,22:30,Far_West_Station
 22:20,12,Stop1,22:50,Far_West_Station
+22:10,12,Stop1,22:15,East_Station
 22:25,12,Stop1,22:29,East_Station
 22:21,12,Stop1,22:30,Far_West_Station
 23:20,12,Stop1,23:50,Far_West_Station

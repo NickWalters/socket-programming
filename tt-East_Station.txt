@@ -20,6 +20,7 @@ East_Station,-31.9442,115.8771
 11:15,Line1,PlatformB,13:18,West_Station
 11:16,13,StopC,11:51,North_Terminus
 22:15,Line1,PlatformB,23:10,West_Station
+22:20,180,StopA,22:30,South_Busport
 22:22,180,StopA,22:51,South_Busport
 22:32,180,StopA,22:51,South_Busport
 23:15,180,StopA,23:51,South_Busport

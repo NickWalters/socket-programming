@@ -247,6 +247,11 @@ public class SelectServer {
 
 		// Read from socket
 		bytesRecv = cchannel.read(inBuffer);
+		if (bytesRecv <= 0) {
+			System.out.println("read() error, or connection closed");
+			key.cancel(); // deregister the socket
+			return false;
+		}
 
 		inBuffer.flip(); // make buffer available
 		decoder.decode(inBuffer, cBuffer, false);
@@ -254,6 +259,18 @@ public class SelectServer {
 		line = cBuffer.toString();
 		System.out.print("TCP Client: " + line);
 
+		String[] lineArr = line.split(" ");
+		if(lineArr.length > 0){
+			if(!line.equals("list\n") && !line.equals("logout\n") && !line.equals("terminate\n")){
+				if(!lineArr[0].equals("get")){
+					// Send error message to client
+					String error = "Unknown command: " + line;
+					outBuffer = ByteBuffer.wrap(error.getBytes(charset));
+					cchannel.write(outBuffer);
+					return false;
+				}
+			}
+		}
 
 		// Echo the message back
 		inBuffer.flip();
