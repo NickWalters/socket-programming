@@ -31,6 +31,8 @@ TCPconnected = False
 neighbourNames = []
 neighbourDepths = []
 
+visitedUDPs = []
+
 # ARGUMENTS **********************************************************
 
 argcount = len(sys.argv)
@@ -187,6 +189,30 @@ def arrivalTime(uri):
 		return startTime
 	else:
 		print("Error: There is no '>' arrival time")
+		
+
+def uriContainsTransferStations(uri):
+	ls = uri.split("&through=")
+	ls.remove(ls[0])
+	stns = []
+
+	for item in ls:
+		if(item.find("%") != -1):
+			end_index = item.find("%")
+			stn = item[0:end_index]
+			stns.append(stn)
+			
+		elif(item.find(">") != -1):
+			end_index = item.find(">")
+			stn = item[0:end_index]
+			stns.append(stn)
+			
+	
+	return stns
+
+
+def finalizeHTML(uri):
+	a = 1+1
 	
 
 # NETWORKING *********************************************************
@@ -331,7 +357,7 @@ while inputs:
 			# UDP Connection
 			UDPconnected = True
 			data, addr = sockUDP.recvfrom(1024)
-			working_withUDP = addr
+			working_withUDP = addr[1]
 			print("(UDP) Now Connected to:", addr)
 			print(data.decode())
 			print("__________________")
@@ -346,6 +372,7 @@ while inputs:
 				elif(data.decode().find("<p>END</p>") != -1):
 					print("CONTAINS <END> ***********")
 					m = data.decode()
+					
 					msg = " ".join((msg, m))
 				else:
 					msg_body = data.decode()
@@ -365,70 +392,114 @@ while inputs:
 					print("TEST ********** TEST ********** TEST ********** ")
 					add = "<p>" + str(uri) + "</p>" + "<p>END</p>"
 					msg = "".join((msg, add))
+					break
 				else:
 					msg = "<p>" + str(uri) + "</p>" + "<p>END</p>"
 					print("send the final message: ")
 					print(msg)
 					print('')
 					sockUDP.sendto(msg.encode(), ('localhost', int(origUDP)))
+						
+					
+					
+			if(data.decode().rfind("visitedAlready") != -1):
+				dta = data.decode()
+				startIndex = dta.find("^")
+				endIndex = dta.rfind("*")
+				prt = dta[startIndex+1:endIndex]
 				
+				found = False
+				for p in visitedUDPs:
+					if(int(prt) == p):
+						found = True
 				
+				if(found):
+					while(uri.find("visitedAlready") != -1):
+						start = uri.find("*")
+						end = uri.rfind("*")
+						strng = uri[start:end+1]
+						uri.replace(strng, "")
+				else:
+					visitedUDPs.append(int(prt))
+				
+						
 			# request scan to neighbour, with flag @
-			elif(data.decode().rfind("@") != -1):
+			if(data.decode().rfind("@") != -1):
 				uri = data.decode()
+				
+					
 				originalUDP = getOriginalUDP(uri)
+				visited = False
+				
+				# check if this station has been visited already
+				usedStns = uriContainsTransferStations(uri)
+				for stn in usedStns:
+					if(stn == stationName):
+						visited = True
+
+				
+				if(data.decode().rfind("--incrementRequester--") != -1):
+					while(data.decode().rfind("--incrementRequester--") != -1):
+						data.decode().replace("--incrementRequester--", "")
+					neighbourIncrement += 1 
+					
 				
 				#check if the neighbour has direct route, if so, then send HTML info
 				destinationStation = destStation(uri)
+				finished = False
 				if(checkDirectRoute(destinationStation)):
-					
+					finished = True
 					crnt_tm = getTransferTime(uri)
 					rt = nextAvailableRoute(crnt_tm, destinationStation)
 					arrival = rt[3]
 					
-					originalUDP = getOriginalUDP(uri)
 					newURI = "".join((uri, "&through=", stationName, ">", arrival, "~~"))		
 					sockUDP.sendto(newURI.encode(), ('localhost', int(originalUDP)))
-					
-				elif(data.decode().find("--notDirect--") != -1):
-					print("TEST 2 **********************" + "\n")
-					uri = data.decode()
-					while(uri.find("--notDirect--") != -1):
-						uri.replace("--notDirect--", "")
-					neighbourIncrement += 1
-					
-					nms = namesOfNeighbours()
-					trans_dstn = nms[neighbourIncrement]		
-					currentTime = getTransferTime(uri)
-					
-					# calculate a route to the neighbour
-					rt = nextAvailableRoute(currentTime, trans_dstn)
-					arvl = rt[3]
-					
-					n_uri = "".join((uri, "&through=", stationName, ">", arrvl))
-					scanAllNeighbours(n_uri, neighbourIncrement)
-					thisNeigh = neighbours[neighbourIncrement]
-					sockUDP.sendto(n_uri.encode(), ('localhost', int(thisNeigh)))
 				
+				if(visited):
+					newmsg = "".join((uri, "*", "visitedAlready", "^", str(udp_port), "*"))
+					sockUDP.sendto(newmsg.encode(), ('localhost', int(working_withUDP)))
+				
+				
+				elif((not finished) and (len(neighbours)-1 >= neighbourIncrement)):
+					# we dont have a direct route, so send request to another neighbour
+					nextNeigh = neighbours[neighbourIncrement]
+					
+					unvisited = neighbours[:]
+					for neighbour in unvisited:
+						for vst in visitedUDPs:
+							if(vst == neighbour):
+								unvisited.remove(vst)
+					
+					found = False
+					for unv_prt in unvisited:
+						if(nextNeigh == unv_prt):
+							found = True
+					
+					while(not found):
+						neighbourIncrement += 1
+						nextNeigh = neighbours[neighbourIncrement]
+						for ngh in unvisited:
+							if(nextNeigh == ngh):
+								found = True
+										
+					
+					newURI = "".join((uri, "&through=", stationName))
+					sockUDP.sendto(newURI.encode(), ('localhost', nextNeigh))
+					
+					
 					
 				else:
-					print("TEST 1 **********************" + "\n\n")
-					nms = namesOfNeighbours()
-					trans_dstn = nms[neighbourIncrement]
-					currentTime = getTransferTime(uri)
-					
-					# calculate a route to the neighbour
-					rout = nextAvailableRoute(currentTime, trans_dstn)
-					arivl = rout[3]
-					
-					nw_uri = "".join((uri, "&through=", stationName, ">", arivl, "--notDirect--"))
-					
-					scanAllNeighbours(nw_uri, neighbourIncrement)
-					thisNeigh = neighbours[neighbourIncrement]
-					sockUDP.sendto(nw_uri.encode(), ('localhost', int(thisNeigh))) 
-				
+					# we dont have any more neighbours, tell requester to move on
+					print("test -*-*-*-*-*-*")
+					print(working_withUDP)
+					print("\n\n")
+						
+					a_uri = "".join((uri, "--incrementRequester--"))
+					sockUDP.sendto(a_uri.encode(), ('localhost', int(working_withUDP)))
+						 		
 			else:
-				a = 1+1
+				print("NONE_____")
 					
 
 				
