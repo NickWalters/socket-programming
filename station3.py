@@ -28,11 +28,6 @@ neighbourIncrement = 0
 UDPconnected = False
 TCPconnected = False
 
-neighbourNames = []
-neighbourDepths = []
-
-visitedUDPs = []
-
 # ARGUMENTS **********************************************************
 
 argcount = len(sys.argv)
@@ -86,13 +81,7 @@ def checkDirectRoute(station):
 	return False
 
 
-def getTransferTime(uri):
-	times = uri.split(">")
-	times.remove(times[0])
-	indexOf = len(times) -1
-	tm = times[indexOf]
-	time = tm[0:5]
-	return time
+
 		
 		
 # Finds the closest/nearest bus or train from this current station
@@ -167,6 +156,9 @@ def destStation(uri):
 
 def scanAllNeighbours(checkmsg, index):
 	neighbourStns = namesOfNeighbours()
+	for stn in neighbourStns:
+		print(stn)
+		print("------------------------")
 	for i in range(len(neighbourStns)):
 		if(index == i):
 			thisNeigh = neighbours[i] # UDP of Neighbour
@@ -179,7 +171,6 @@ def scanAllNeighbours(checkmsg, index):
 
 def getNeighbour():
 	neighbourStns = namesOfNeighbours()
-
 
 def arrivalTime(uri):
 	if(uri.rfind(">") != -1):
@@ -202,22 +193,11 @@ def uriContainsTransferStations(uri):
 			stn = item[0:end_index]
 			stns.append(stn)
 			
-		elif(item.find(">") != -1):
-			end_index = item.find(">")
+		elif(item.find("|") != -1):
+			end_index = item.find("|")
 			stn = item[0:end_index]
 			stns.append(stn)
 	return stns
-
-
-def checkAndIncrement(uri):
-	if(uri.rfind("--incrementRequester--") != -1):
-		while(uri.rfind("--incrementRequester--") != -1):
-			uri = uri.replace("--incrementRequester--", "")
-		neighbourIncrement += 1 
-
-
-def finalizeHTML(uri):
-	a = 1+1
 	
 
 # NETWORKING *********************************************************
@@ -334,7 +314,6 @@ while inputs:
 						# requires transfer to different station
 						uri = request_uri
 						
-						
 						# get the Departure Time based on current time
 						now = datetime.now()
 						current_time = now.strftime("%H:%M:%S")
@@ -342,11 +321,8 @@ while inputs:
 						
 						
 						# Get a list of all the neighbours
-						neighbourNames = namesOfNeighbours()
-						dstn = neighbourNames[neighbourIncrement]
-						
-						print("TCP EXECUTION**********************\n\n\n")
-						
+						nms = namesOfNeighbours()
+						dstn = nms[neighbourIncrement]
 						
 						# calculate a route to the neighbour
 						rt = nextAvailableRoute(departureTime, dstn)
@@ -354,11 +330,10 @@ while inputs:
 						transportNumber = rt[1]
 						stopPlatform = rt[2]
 						
-						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "+for:", dstn, "|", "#", str(udp_port), "#"))
+						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "#", str(udp_port), "#"))
 						# if i am dealing with multiple station transfers, I need to strip this station information from the URI if there is no route through this station
-						print("TCP DONE EXECUTION**********************\n\n\n")
+							
 				#SCAN A NEIGHBOUR *************************************************
-						
 						scanAllNeighbours(new_uri, neighbourIncrement)
 							
 							
@@ -367,226 +342,127 @@ while inputs:
 			# UDP Connection
 			UDPconnected = True
 			data, addr = sockUDP.recvfrom(1024)
-			working_withUDP = addr[1]
+			working_withUDP = addr
 			print("(UDP) Now Connected to:", addr)
 			print(data.decode())
-			uri = data.decode()
 			print("__________________")
-			proceed = False
 			
 			# If the recieved data contains HTML, then choose how to display it
-			if(uri.find("<p>") != -1):
-				if(uri.find("<p>START</p>") != -1):
-					msg_body = uri
+			if(data.decode().find("<p>") != -1):
+				if(data.decode().find("<p>START</p>") != -1):
+					msg_body = data.decode()
 					msg = " ".join((trs_msg, msg_body))
 					print(msg)
-					
-				elif(uri.find("<p>END</p>") != -1):
-					print("CONTAINS <END> ***********")
-					m = uri
-					
-					msg = " ".join((msg, m))
 				else:
-					msg_body = uri
+					msg_body = data.decode()
 					msg = " ".join((msg, msg_body))
 					print(msg)
-			
-			elif(uri.rfind("~") != -1):
-				'''
-				while(uri.find("--notDirect--") != -1):
-					uri.replace("--notDirect--", "")'''
-				print("FOUND DESTINATION _____________________________")
-				print(uri)
 				
-				origUDP = getOriginalUDP(uri)
-				if(int(origUDP) == udp_port):
-					print("TEST ********** TEST ********** TEST ********** ")
-					add = "<p>" + str(uri) + "</p>" + "<p>END</p>"
-					msg = "".join((msg, add))
-					break
-				else:
-					msg = "<p>" + str(uri) + "</p>" + "<p>END</p>"
-					print("send the final message: ")
-					print(msg)
-					print('')
-					sockUDP.sendto(msg.encode(), ('localhost', int(origUDP)))
-						
-			if(uri.rfind("+for:") != -1):
-				start = uri.rfind(":")
-				end = uri.rfind("|")
-				stn_for = uri[start+1: end]
+			elif(data.decode().find("~Finished") != -1):
+				end = data.decode().rfind("|")
+				tmp = data.decode()
+				print(tmp + "\n\n\n\n\n")
+				dstn = tmp[0:end]
 				
-				if(stationName != stn_for):
-					srt = uri.find("+for:")
-					replaceString = uri[srt: end+1]
-					uri = uri.replace(replaceString, "")
-					
-					a_uri = "".join((uri, "--incrementRequester--"))
-					sockUDP.sendto(a_uri.encode(), ('localhost', int(working_withUDP)))
-				else:
-					proceed = True
-			else:
-				proceed = True
-			
-			
-			org = getOriginalUDP(uri)
-			if((uri.rfind("visitedAlready") != -1) and (org != udp_port)):
-				print("TEST 1")
-				dta = uri
-				startIndex = dta.find("^")
-				endIndex = dta.rfind("*")
-				prt = dta[startIndex+1:endIndex]
+				now = datetime.now()
+				current_time = now.strftime("%H:%M:%S")
+				departureTime = current_time[0:5]
 				
-				found = False
-				for p in visitedUDPs:
-					if(int(prt) == p):
-						found = True
-						print("TEST 2")
-				
-				if(found):
-					print("TEST 3")
-					while(uri.find("visitedAlready") != -1):
-						start = uri.find("*")
-						end = uri.rfind("*")
-						strng = uri[start:end+1]
-						
-						print("\n\n\n\n")
-						print("STRING TO REPLACE : ")
-						print(strng + "\n\n\n\n")
-						
-						while(uri.find("visitedAlready") != -1):
-							uri = uri.replace(strng, "")
-							print(uri)
-				else:
-					print("TEST 4")
-					visitedUDPs.append(int(prt))
-				
-			print("TEST 5")
-			# request scan to neighbour, with flag @
-			if((uri.rfind("@") != -1) and proceed):
-				print("TEST 6")
-					
-				originalUDP = getOriginalUDP(uri)
-				visited = False
-				
-				# check if this station has been visited already
-				usedStns = uriContainsTransferStations(uri)
-				for stn in usedStns:
-					if(stn == stationName):
-						visited = True
+				transfer_stns = uriContainsTransferStations(tmp)
 
-				print("TEST 7")
-				if(uri.rfind("--incrementRequester--") != -1):
-					while(uri.rfind("--incrementRequester--") != -1):
-						uri = uri.replace("--incrementRequester--", "")
-						print("TEST 8")
-					neighbourIncrement += 1 
+				bMsg = '''
+				<p>START</p>
+				<p>You Require Transfer(s)<p>
+				<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+				<h2>Starting Station : {} </h2>
+				<h3>Departure Time: {} </h3>
+				</div>
+				'''.format(stationName, departureTime)
+				msg = "".join((msg, bMsg))
 				
-				print(uri + "\n\n")	
-				print("NI:" + str(neighbourIncrement))
-				print("TEST 9")
+				
+			
+			
+			# if the data returned from a neighbour doesn't have a direct route, scan next neighbour
+			elif(data.decode().find("noDirectRoute--") != -1):
+				dat = data.decode()
+				inx = dat.rfind('--')
+				endinx = data.rfind('++')
+				udp_org = dat[inx+2: endinx]
+				
+				if(int(udp_org) == udp_port):
+					indx = dat.index("noDirectRoute")
+					uri = dat[0:indx]
+					if(len(neighbours)-1 > neighbourIncrement):
+						neighbourIncrement += 1
+					scanAllNeighbours(uri, neighbourIncrement)
+					
+									
+			# request scan to neighbour, with flag @
+			elif(data.decode().find("@") != -1):
+				uri = data.decode()
+				
 				#check if the neighbour has direct route, if so, then send HTML info
 				destinationStation = destStation(uri)
-				finished = False
 				if(checkDirectRoute(destinationStation)):
-					finished = True
-					crnt_tm = getTransferTime(uri)
-					rt = nextAvailableRoute(crnt_tm, destinationStation)
-					arrival = rt[3]
+					arv = arrivalTime(uri)
+					departureTime = arv
 					
-					newURI = "".join((uri, "&through=", stationName, ">", arrival, "~~"))		
-					sockUDP.sendto(newURI.encode(), ('localhost', int(originalUDP)))
+					print("this is another testing line")
+					tmp_route = nextAvailableRoute(arv, destinationStation)
 					
-				if(visited and (not finished)):
-					print("TEST 10")
-					newmsg = "".join((uri, "*", "visitedAlready", "^", str(udp_port), "*"))
+					boardTime = tmp_route[0]
+					transportNumber = tmp_route[1]
+					stopPlatform = tmp_route[2]
+					arrivalTime = tmp_route[3]
+					arrivTime = tmp_route[3]
 					
-					print("Im sending to udp port: " + str(neighbours[neighbourIncrement]) + "\n")
-					sockUDP.sendto(newmsg.encode(), ('localhost', int(neighbours[neighbourIncrement])))
-					print("TEST 11")
-					
-					
-				elif(len(neighbours)-1 >= neighbourIncrement):
-					print("TEST 12")
-					# we dont have a direct route, so send request to another neighbour
-					nextNeigh = neighbours[neighbourIncrement]
-					
-					unvisited = neighbours[:]
-					for neighbour in unvisited:
-						for vst in visitedUDPs:
-							if(vst == neighbour):
-								unvisited.remove(vst)
-					
-					found = False
-					for unv_prt in unvisited:
-						if(nextNeigh == unv_prt):
-							found = True
-					
-					if(not found):
-						print("found is not true, this station/port hasnt been visited\n\n")
-					if(found):
-						print("found\n\n")
-					
-					while(not found):
-						print("TEST 13")
+					bodyMsg = '''
+					<p>Transfer</p>
+					<h2>from {} to: {} </h2>
+					<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+					<p> Time: {} </p>
+					<p> Station: {} </p>
+					<p> Platform/Stand: {} </p>
 						
-						if(len(neighbours)-1 >= neighbourIncrement+1):
-							print("TEST 14")
-							#something
+					<hr>
+					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+					<p> Station: {} </p>
+					</div>
+					<p>END</p>
+					'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
+					
+					print(bodyMsg)
+					
+					originalUDP = getOriginalUDP(uri)
+					
+					fmsg = "".join((uri, "&through=", stationName, "|", "~Finished"))
+					sockUDP.sendto(fmsg.encode(), ('localhost', int(originalUDP)))
+					
+					sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
+					
+				else:
+					# neighbour doesn't have a direct route, so tell the requester this. So that requester can move onto the next neighbour
+					originalUDP = getOriginalUDP(uri)
+					messg = "".join((uri, "noDirectRoute--", str(working_withUDP[1]), "++"))
+					sockUDP.sendto(messg.encode(), working_withUDP)
+					
+					# scan the neighbours of the current station (next depth level)
+					neigh_msg = "".join((uri, "&through=", stationName, "|"))
+					
+					nextNeigh = neighbours[neighbourIncrement]
+					if(nextNeigh == working_withUDP):
+						if(len(neighbours)-1 > neighbourIncrement):
 							neighbourIncrement += 1
 							nextNeigh = neighbours[neighbourIncrement]
-							for ngh in unvisited:
-								if(nextNeigh == ngh):
-									found = True
-							newURI = "".join((uri, "&through=", stationName))
-							
-							print("**************************************####**************")
-							print("NI: " + str(neighbourIncrement))
-							print("sending to neighbour: " + nextNeigh)
-							print("\n\n\n\n")
-							
-							
-							sockUDP.sendto(newURI.encode(), ('localhost', nextNeigh))
-						else:
-							a_uri = "".join((uri, "--incrementRequester--"))
-							sockUDP.sendto(a_uri.encode(), ('localhost', int(working_withUDP)))
-							break
-				else:
-					# we dont have any more neighbours, tell requester to move on
-					print("test -*-*-*-*-*-*")
-					print(working_withUDP)
-					print("\n\n")
-						
-					a_uri = "".join((uri, "--incrementRequester--"))
-					sockUDP.sendto(a_uri.encode(), ('localhost', int(working_withUDP)))
-						 		
-			else:
-				print("NONE_____")
-					
-
+							sockUDP.sendto(neigh_msg.encode(), ('localhost', nextNeigh))
+					else:
+						sockUDP.sendto(neigh_msg.encode(), ('localhost', nextNeigh))
+				
 				
 
-	if(TCPconnected and (msg.find("<p>END</p>") != -1)):
+	if(TCPconnected and (msg.find("<p>END</p>") != -1) and (msg.find("<p>START</p>") != -1)):
 		msg = "".join((msg, trs_msg, msg_end))
 		client_sock.send(msg.encode())
 		client_sock.close()
-		
-		
-		
-		
-
-
-
-
-
-
-
-
-
-
-'''
-if(visited and (not finished)):
-	print("TEST 10")
-	newmsg = "".join((uri, "*", "visitedAlready", "^", str(udp_port), "*"))
-	sockUDP.sendto(newmsg.encode(), ('localhost', int(neighbours[neighbourIncrement])))
-	print("TEST 11")'''
