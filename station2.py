@@ -339,6 +339,9 @@ while inputs:
 						neighbourNames = namesOfNeighbours()
 						dstn = neighbourNames[neighbourIncrement]
 						
+						print("TCP EXECUTION**********************\n\n\n")
+						
+						
 						# calculate a route to the neighbour
 						rt = nextAvailableRoute(departureTime, dstn)
 						arvl = rt[3]
@@ -347,8 +350,9 @@ while inputs:
 						
 						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "#", str(udp_port), "#"))
 						# if i am dealing with multiple station transfers, I need to strip this station information from the URI if there is no route through this station
-							
+						print("TCP DONE EXECUTION**********************\n\n\n")
 				#SCAN A NEIGHBOUR *************************************************
+						
 						scanAllNeighbours(new_uri, neighbourIncrement)
 							
 							
@@ -477,17 +481,27 @@ while inputs:
 							found = True
 					
 					while(not found):
-						neighbourIncrement += 1
-						nextNeigh = neighbours[neighbourIncrement]
-						for ngh in unvisited:
-							if(nextNeigh == ngh):
-								found = True
+						
+						if(len(neighbours)-1 >= neighbourIncrement+1):
+							#something
+							neighbourIncrement += 1
+							nextNeigh = neighbours[neighbourIncrement]
+							for ngh in unvisited:
+								if(nextNeigh == ngh):
+									found = True
+							newURI = "".join((uri, "&through=", stationName))
+							
+							print("**************************************####**************")
+							print("NI: " + str(neighbourIncrement))
+							print("sending to neighbour: " + nextNeigh)
+							print("\n\n\n\n")
+							
+							
+							sockUDP.sendto(newURI.encode(), ('localhost', nextNeigh))
+						else:
+							a_uri = "".join((uri, "--incrementRequester--"))
+							sockUDP.sendto(a_uri.encode(), ('localhost', int(working_withUDP)))
 										
-					
-					newURI = "".join((uri, "&through=", stationName))
-					sockUDP.sendto(newURI.encode(), ('localhost', nextNeigh))
-					
-					
 					
 				else:
 					# we dont have any more neighbours, tell requester to move on
