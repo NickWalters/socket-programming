@@ -369,6 +369,7 @@ while inputs:
 				departureTime = current_time[0:5]
 				
 				transfer_stns = uriContainsTransferStations(tmp)
+				numTransfers = len(transfer_stns) - 2
 
 				bMsg = '''
 				<p>START</p>
@@ -377,7 +378,10 @@ while inputs:
 				<h2>Starting Station : {} </h2>
 				<h3>Departure Time: {} </h3>
 				</div>
-				'''.format(stationName, departureTime)
+				<div style="background-color:lightgreen; border-style: solid" align="middle" class="center">
+				<p> no. of transfers: {} </p>
+				</div>
+				'''.format(stationName, departureTime, numTransfers)
 				msg = "".join((msg, bMsg))
 				
 				
@@ -418,7 +422,7 @@ while inputs:
 					arrivTime = tmp_route[3]
 					
 					bodyMsg = '''
-					<p>Transfer</p>
+					<p>Transfer through other stations...and get to your destination here:</p>
 					<h2>from {} to: {} </h2>
 					<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
 					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
