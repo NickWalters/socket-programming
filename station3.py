@@ -378,10 +378,7 @@ while inputs:
 				<h2>Starting Station : {} </h2>
 				<h3>Departure Time: {} </h3>
 				</div>
-				<div style="background-color:lightgreen; border-style: solid" align="middle" class="center">
-				<p> no. of transfers: {} </p>
-				</div>
-				'''.format(stationName, departureTime, numTransfers)
+				'''.format(stationName, departureTime)
 				msg = "".join((msg, bMsg))
 				
 				
