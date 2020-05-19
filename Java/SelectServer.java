@@ -240,6 +240,7 @@ public class SelectServer {
 	public boolean echoTCP() throws Exception{
 		cchannel = (SocketChannel) key.channel();
 		Socket socket = cchannel.socket();
+		
 
 		// Open input and output streams
 		inBuffer = ByteBuffer.allocateDirect(BUFFERSIZE);
@@ -252,6 +253,13 @@ public class SelectServer {
 			key.cancel(); // deregister the socket
 			return false;
 		}
+		
+		String httpResponse = "HTTP/1.0 404 Not Found\r\n"+
+							"Content-type: text/html\r\n\r\n"+
+							"<html><head><p>Welcome to Transperth</p></head><body>";
+		DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+		out.writeBytes(httpResponse);
+		cchannel.write(out);
 
 		inBuffer.flip(); // make buffer available
 		decoder.decode(inBuffer, cBuffer, false);

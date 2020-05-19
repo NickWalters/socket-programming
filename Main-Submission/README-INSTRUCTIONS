@@ -1,0 +1,15 @@
+OS: 				macOS Catalina 10.15 (beta) (19A536g)
+Name: 				Nicholas Walters
+Student Number: 	22243339
+
+NOTE: Due to using UNIX system calls, like fork() and select()
+this program is unable to run on windows/non unix systems
+
+
+"
+Hello Chris, please find the main python file, and main C++ file for running this project. 
+
+	Although the file is C++, the main networking code is in C, and only some C++ data structures were used, such as Strings, and vectors.
+
+	There is a folder called 'other files', but please dont assess the files in this folder. The scripts inside this folder were just for experimentation on my many attempts to get this project to work, and are just references for me
+"

@@ -1,6 +1,7 @@
 // File Name GreetingServer.java
 import java.net.*;
 import java.io.*;
+import java.util.Date;
 
 public class server extends Thread {
 	private ServerSocket serverSocket;
@@ -13,6 +14,11 @@ public class server extends Thread {
 	public void run() {
 		while(true) {
 			try {
+				Date today = new Date();
+				String httpResponse = "HTTP/1.0 404 Not Found\r\n"+
+									"Content-type: text/html\r\n\r\n"+
+									"<html><head><p>Welcome to Transperth</p></head><body>";
+				
 				System.out.println("Waiting for client on port " + 
 					serverSocket.getLocalPort() + "...");
 				Socket server = serverSocket.accept();
@@ -21,9 +27,7 @@ public class server extends Thread {
 				DataInputStream in = new DataInputStream(server.getInputStream());
 				
 				System.out.println(in.readUTF());
-				DataOutputStream out = new DataOutputStream(server.getOutputStream());
-				out.writeUTF("Thank you for connecting to " + server.getLocalSocketAddress()
-					+ "\nGoodbye!");
+				DataOutputStream out = new DataOutputStream(server.getOutputStream().write(httpResponse.getBytes("UTF-8")));
 				server.close();
 				
 			} catch (SocketTimeoutException s) {
