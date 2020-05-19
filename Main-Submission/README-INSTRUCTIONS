@@ -9,6 +9,16 @@ this program is unable to run on windows/non unix systems
 "
 Hello Chris, please find the main python file, and main C++ file for running this project. 
 
+	Unfortunately, this project is incomplete...
+	I tried my best to get this python server showing the correct information when there is more than 4 stations, but it doesnt work.
+	
+	
+	the C++ program shows direct routes only.
+	
+	this project has been my life since it was published. I spent over 10 hours per day most days, working on this.
+	I hope I have shown enough evidence that i know a lot about networks with this code, even though its not a complete package...
+	
+
 	Although the file is C++, the main networking code is in C, and only some C++ data structures were used, such as Strings, and vectors.
 
 	There is a folder called 'other files', but please dont assess the files in this folder. The scripts inside this folder were just for experimentation on my many attempts to get this project to work, and are just references for me

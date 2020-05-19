@@ -35,6 +35,7 @@ Sources/Acknowledgements:
 #include <vector>
 #include <ctime>
 #include <iostream>
+#include <sstream>
 
 
 using namespace std;
@@ -86,21 +87,19 @@ void printS(vector<string> const &input){
 }
 
 
-bool isDirect(string stnName){    
+bool isDirect(string stnName){   
     for(int i=0; i<routeList.size(); ++i){
         string line;
         line = routeList.at(i);
         reverse(line.begin(), line.end());
         string station = line.substr(0, line.find(","));
         reverse(station.begin(), station.end());
-        
         if(strcmp(stnName.c_str(), station.c_str()) == 0){
             return true;
         }
     }
     return false;
 }
-
 
 
 
@@ -115,21 +114,34 @@ const string currentDateTime() {
 }
 
 
+
 vector<string> split(string str, string sep){
-    char* cstr=const_cast<char*>(str.c_str());
-    char* current;
-    vector<string> arr;
-    current=strtok(cstr,sep.c_str());
-    while(current!=NULL){
-        arr.push_back(current);
-        current=strtok(NULL,sep.c_str());
+    stringstream ss(str);
+    vector<string> result;
+
+    while( ss.good() )
+    {
+        string substr;
+        getline(ss, substr, ',');
+        result.push_back( substr );
     }
-    cout << "__________________________SPLITTING________________________\n\n";
-    for(int i=0; i<arr.size(); i++){
-        cout<< arr[i] + "\n";
+    for(int i=0; i<result.size(); i++){
+        cout << result[i] + "\n";
     }
-    cout << "__________________________ ENDSPLIT________________________\n\n";
-    return arr;
+    return result;
+}
+
+string splitTime(string str, string sep, int index){
+    stringstream ss(str);
+    vector<string> result;
+
+    while( ss.good() )
+    {
+        string substr;
+        getline(ss, substr, ',');
+        result.push_back( substr );
+    }
+    return result[index];
 }
 
 
@@ -173,6 +185,7 @@ int main(int argc, char const *argv[])
         routeList.push_back(text);
         numLines++;
     }
+    routeList.erase(routeList.begin());
     MyReadFile.close();
     
 
@@ -180,6 +193,7 @@ int main(int argc, char const *argv[])
     
     // NETWORKING____________________________________________________________
     char msg[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-4 \r\n\r\n<html><body><h2>Welcome to Transperth</h2><img src='https://cdn.businessnews.com.au/styles/wabn_kb_company_logo/public/transperth.jpg?itok=8dMAeY3K' alt='transperth' width='384' height='80'><h4> Your route is as follows: <h4><hr>";
+    string msgString = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-4 \r\n\r\n<html><body><h2>Welcome to Transperth</h2><img src='https://cdn.businessnews.com.au/styles/wabn_kb_company_logo/public/transperth.jpg?itok=8dMAeY3K' alt='transperth' width='384' height='80'><h4> Your route is as follows: <h4><hr>";
 
     int listenfd, connfd, udpfd, nready, maxfdp1; 
     char buffer[MAXLINE]; 
@@ -251,6 +265,7 @@ int main(int argc, char const *argv[])
                 // CHECK FOR A DIRECT ROUTE FROM CURRENT STATION
                 bool direct = isDirect(destinationStation);
                 if(direct == true){
+                    printf("IS DIRECT __________:");
                     string now = currentDateTime();
                     cout << now + "\n\n";
                     
@@ -258,12 +273,8 @@ int main(int argc, char const *argv[])
                     string lastRT;
                     string lastTime;
                     for(int i=1; i<routeList.size(); i++){
-                        cout << routeList[i] + '\n';
-                        char *rt = (char*) routeList[i].c_str();
-                        char *time_c;
-                        
-                        time_c = strtok(rt, ",");
-                        lastTime = time_c;
+                        string time_c = splitTime(routeList[i], ",", 0);
+                        cout << "\n\n\ntime_c: " + time_c + "\n\n\n";
                         if(time_c < now){
                             bool check = contains_Station(routeList[i], destinationStation);
                             if(check){
@@ -284,9 +295,21 @@ int main(int argc, char const *argv[])
                         }
                     }
                     cout << "\n\n\n" + lastRT;
+
+                    vector<string> rt = split(lastRT, ",");
+                    string departureTime = rt[0];
+                    string busNum = rt[1];
+                    string stop = rt[2];
+                    string arrivalTime = rt[3];
+                    string startStation = rt[4];
+
+                    string appendString = "<p>From: " + stationName + "</p>" + "<p>To: " + destinationStation + "</p>" + "<p> Boarding Time: " + departureTime + "</p>" + "<p> Number: " + busNum + "</p>" + "<p> Stop: " + stop + "</p>" + "<p> Arrival Time: " + arrivalTime + "</p>";
+                    msgString.append(appendString);
+                    
                     
                 }
-                send(connfd, msg, strlen(msg), 0);
+                char *toSend = (char *) msgString.c_str();
+                send(connfd, toSend, strlen(toSend), 0);
                 close(connfd); 
                 exit(0);
             } 

@@ -124,6 +124,7 @@ def nextAvailableRoute(current_time, destnStation):
 			return possibleBoardingTimes[0]
 		else:
 			print("Error: There is route that is beyond the current time. You have either missed the last bus, or there is no direct route")
+			return -1
 	else:
 		print("Error: There was no request from the Client to go Anywhere")
 		
@@ -437,28 +438,42 @@ while inputs:
 				
 				if(len(neighbours) == 1 and (neighbours[0] == working_withUDP[1])):
 					sockUDP.sendto(uri.encode(), working_withUDP)		
-				else:					
-					for neigh in names:
-						splitter = neigh.rfind(":")
-						end = neigh.rfind("]")
-						
-						n_name = neigh[0:splitter]
-						n_udp = neigh[splitter+1:end]
-						
-						if(n_udp == working_withUDP[1]):
-							continue
-						else:
-							cur_time = arrivalTime(uri)
-							if(cur_time == -1):
-								now = datetime.now()
-								current_time = now.strftime("%H:%M:%S")
-								# cur_time = current_time[0:5]
-								cur_time = "06:05"
+				else:
+					destinationStation = destStation(uri)
+					if(checkDirectRoute(destinationStation)):
+						oUDP = getOriginalUDP(uri)
+						msgSend = "".join((uri, "~Finished"))
+						sockUDP.sendto(msgSend.encode(), ('localhost', int(oUDP)))
+						sockUDP.sendto("<p>END<p>".encode(), ('localhost', int(oUDP)))
+					else:
+						for neigh in names:
+							splitter = neigh.rfind(":")
+							end = neigh.rfind("]")
 							
-							rt = nextAvailableRoute(cur_time, n_name)
-							arvTime = rt[3]
-							new_uri = "".join((uri, "&through=", stationName, ">", arvTime))
-							sockUDP.sendto(new_uri.encode(), ('localhost', int(n_udp)))
+							n_name = neigh[0:splitter]
+							n_udp = neigh[splitter+1:end]
+							
+							if(n_udp == working_withUDP[1]):
+								continue
+							else:
+								cur_time = arrivalTime(uri)
+								if(cur_time == -1):
+									now = datetime.now()
+									current_time = now.strftime("%H:%M:%S")
+									# cur_time = current_time[0:5]
+									cur_time = "06:05"
+								
+								print("\n\nI wanna go to: " + n_name + "\n\n")
+								rt = nextAvailableRoute(cur_time, n_name)
+								if(rt != -1):
+									arvTime = rt[3]
+									new_uri = "".join((uri, "&through=", stationName, ">", arvTime))
+									sockUDP.sendto(new_uri.encode(), ('localhost', int(n_udp)))
+								else:
+									continue
+						
+											
+					
 				
 							
 			
