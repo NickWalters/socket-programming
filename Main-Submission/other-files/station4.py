@@ -368,6 +368,7 @@ while inputs:
 				elif(uri.find("<p>END</p>") != -1):
 					if(trs_msg.find("<p>END</p>") != -1):
 						# do nothing, already have the finished tag
+						a = 1+1
 					else:
 						msg_body = uri
 						trs_msg = " ".join((trs_msg, msg_body))
