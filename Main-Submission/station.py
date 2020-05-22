@@ -13,10 +13,7 @@ stationName = ""
 originalUDP = ""
 tcp_port = -1
 udp_port = -1
-
-
 neighbours = []
-names = []
 
 routes = []
 
@@ -30,9 +27,6 @@ neighbourIncrement = 0
 
 UDPconnected = False
 TCPconnected = False
-
-workingWithURI = ""
-
 
 # ARGUMENTS **********************************************************
 
@@ -88,7 +82,9 @@ def checkDirectRoute(station):
 
 
 
-		
+# IMPORTANT FUNCTION !!!!
+# This gets the next available route from current station to destination station
+# this also prints whether there is a valid route on the current day
 		
 # Finds the closest/nearest bus or train from this current station
 # needs to be a direct route	
@@ -119,13 +115,10 @@ def nextAvailableRoute(current_time, destnStation):
 						
 		if(len(possibleBoardingTimes) > 0):
 			possibleBoardingTimes.reverse()
-			for item in possibleBoardingTimes:
-				print("*********************")
-				print item
 			return possibleBoardingTimes[0]
 		else:
-			print("Error: There is route that is beyond the current time. You have either missed the last bus, or there is no direct route")
-			return -1
+			# this specifies the requirement in the marking rubric, that there is no bus/train left today
+			print("Error: There is no route that is beyond the current time. You have either missed the last bus today, or there is no direct route now to this station")
 	else:
 		print("Error: There was no request from the Client to go Anywhere")
 		
@@ -170,6 +163,7 @@ def scanAllNeighbours(checkmsg, index):
 		if(index == i):
 			thisNeigh = neighbours[i] # UDP of Neighbour
 			neighName = neighbourStns[i] # name of neighbour
+			checkmsg = "".join((checkmsg, "@"))
 			sockUDP.sendto(checkmsg.encode(), ('localhost', thisNeigh))
 		else:
 			continue
@@ -178,8 +172,6 @@ def scanAllNeighbours(checkmsg, index):
 def getNeighbour():
 	neighbourStns = namesOfNeighbours()
 
-
-
 def arrivalTime(uri):
 	if(uri.rfind(">") != -1):
 		index = uri.rfind(">")
@@ -187,7 +179,7 @@ def arrivalTime(uri):
 		startTime = uri[index+1: end_index]
 		return startTime
 	else:
-		return -1
+		print("Error: There is no '>' arrival time")
 		
 
 def uriContainsTransferStations(uri):
@@ -196,24 +188,17 @@ def uriContainsTransferStations(uri):
 	stns = []
 
 	for item in ls:
-		if(item.find(">") != -1):
-			end_index = item.find(">")
+		if(item.find("%") != -1):
+			end_index = item.find("%")
 			stn = item[0:end_index]
 			stns.append(stn)
-		if(item.find("~") != -1):
-		    end_index = item.find("~")
-		    stn = item[0:end_index]
-		    stns.append(stn)
+			
+		elif(item.find("|") != -1):
+			end_index = item.find("|")
+			stn = item[0:end_index]
+			stns.append(stn)
 	return stns
 	
-
-def getTransferStations(uri):
-	ls = uri.split("&through=")
-	ls.remove(ls[0])
-	for item in ls:
-	    if(item.find(">") != -1):
-	        ls.remove(item)
-	return ls
 
 # NETWORKING *********************************************************
 
@@ -332,7 +317,7 @@ while inputs:
 						# get the Departure Time based on current time
 						now = datetime.now()
 						current_time = now.strftime("%H:%M:%S")
-						# departureTime = current_time[0:5]
+						departureTime = current_time[0:5]
 						
 						
 						# Get a list of all the neighbours
@@ -345,14 +330,11 @@ while inputs:
 						transportNumber = rt[1]
 						stopPlatform = rt[2]
 						
-						new_uri = "".join((uri, "&through=", stationName, ">", arvl, "#", str(udp_port), "#"))
-						
-						workingWithURI = new_uri
+						new_uri = "".join((uri, "&through=", stationName, "%", departureTime, ">", arvl, "#", str(udp_port), "#"))
 						# if i am dealing with multiple station transfers, I need to strip this station information from the URI if there is no route through this station
 							
 				#SCAN A NEIGHBOUR *************************************************
-						# scanAllNeighbours(new_uri, neighbourIncrement)		
-						sockUDP.sendto(new_uri.encode(), ('localhost', neighbours[neighbourIncrement]))
+						scanAllNeighbours(new_uri, neighbourIncrement)
 							
 							
 							
@@ -361,30 +343,24 @@ while inputs:
 			UDPconnected = True
 			data, addr = sockUDP.recvfrom(1024)
 			working_withUDP = addr
-			uri = data.decode()
 			print("(UDP) Now Connected to:", addr)
 			print(data.decode())
 			print("__________________")
 			
-			
 			# If the recieved data contains HTML, then choose how to display it
-			if(uri.find("<p>") != -1):
-				if(uri.find("<p>START</p>") != -1):
-					msg_body = uri
+			if(data.decode().find("<p>") != -1):
+				if(data.decode().find("<p>START</p>") != -1):
+					msg_body = data.decode()
+					msg = " ".join((trs_msg, msg_body))
+					print(msg)
+				else:
+					msg_body = data.decode()
 					msg = " ".join((msg, msg_body))
 					print(msg)
-				elif(uri.find("<p>END</p>") != -1):
-					if(trs_msg.find("<p>END</p>") != -1):
-						# do nothing, already have the finished tag
-						a = 1+1
-					else:
-						msg_body = uri
-						trs_msg = " ".join((trs_msg, msg_body))
-						print(trs_msg)
 				
-			elif(uri.find("~Finished") != -1):
-				end = uri.rfind("|")
-				tmp = uri
+			elif(data.decode().find("~Finished") != -1):
+				end = data.decode().rfind("|")
+				tmp = data.decode()
 				print(tmp + "\n\n\n\n\n")
 				dstn = tmp[0:end]
 				
@@ -392,8 +368,8 @@ while inputs:
 				current_time = now.strftime("%H:%M:%S")
 				departureTime = current_time[0:5]
 				
-				# transfer_stns = uriContainsTransferStations(tmp)
-				# numTransfers = len(transfer_stns) - 2
+				transfer_stns = uriContainsTransferStations(tmp)
+				numTransfers = len(transfer_stns) - 2
 
 				bMsg = '''
 				<p>START</p>
@@ -405,173 +381,91 @@ while inputs:
 				<p> We will find the next bus from {}, according to the Current Time (now) </p>
 				</div>
 				'''.format(stationName, departureTime, stationName)
+				msg = "".join((msg, bMsg))
 				
-				# bMsg = "".join((bMsg, "<p>", str(uri), "<p>"))
 				
-				orgi = getOriginalUDP(uri)
-				if(orgi == udp_port):
-					msg = "".join((msg, bMsg))
-				else:
-					sockUDP.sendto(bMsg.encode(), ('localhost', int(orgi)))
 			
-			if(len(names) < len(neighbours)):
-				recv_uri = uri
-				for neigh in neighbours:
-					if(len(neighbours) == 1 and (neigh == working_withUDP[1])):
-						print("test 1")
-						sockUDP.sendto(uri.encode(), ('localhost', neigh))
-						continue
-					else:
-						print("test 3")
-						name_msg = uri + "}" + stationName + ":" + str(udp_port) + "]"
-						sockUDP.sendto(name_msg.encode(), ('localhost', neigh))
+			
+			# if the data returned from a neighbour doesn't have a direct route, scan next neighbour
+			elif(data.decode().find("noDirectRoute--") != -1):
+				dat = data.decode()
+				inx = dat.rfind('--')
+				endinx = data.rfind('++')
+				udp_org = dat[inx+2: endinx]
 				
-			if(uri.find("}") != -1):
-				ind = uri.rfind("}")
-				end = uri.rfind("]")		
-				sName = uri[ind+1:end]
+				if(int(udp_org) == udp_port):
+					indx = dat.index("noDirectRoute")
+					uri = dat[0:indx]
+					if(len(neighbours)-1 > neighbourIncrement):
+						neighbourIncrement += 1
+					scanAllNeighbours(uri, neighbourIncrement)
+					
+									
+			# request scan to neighbour, with flag @
+			elif(data.decode().find("@") != -1):
+				uri = data.decode()
+				
+				#check if the neighbour has direct route, if so, then send HTML info
+				destinationStation = destStation(uri)
+				if(checkDirectRoute(destinationStation)):
+					arv = arrivalTime(uri)
+					departureTime = arv
+					
+					print("this is another testing line")
+					tmp_route = nextAvailableRoute(arv, destinationStation)
+					
+					boardTime = tmp_route[0]
+					transportNumber = tmp_route[1]
+					stopPlatform = tmp_route[2]
+					arrivalTime = tmp_route[3]
+					arrivTime = tmp_route[3]
+					
+					bodyMsg = '''
+					<p>Transfer through other stations...and get to your destination here:</p>
+					<h2>from {} to: {} </h2>
+					<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
+					<p><font color="red">Board Bus/Train number <strong>{}</strong> at: </font></p>
+					<p> Time: {} </p>
+					<p> Station: {} </p>
+					<p> Platform/Stand: {} </p>
+						
+					<hr>
+					<p><font color="red"><strong>Arrival Time: </strong></font>{}</p>
+					<p> Station: {} </p>
+					</div>
+					<p>END</p>
+					'''.format(stationName, destinationStation, transportNumber, boardTime, stationName, stopPlatform, arrivalTime, destinationStation)
+					
+					print(bodyMsg)
+					
+					originalUDP = getOriginalUDP(uri)
+					
+					fmsg = "".join((uri, "&through=", stationName, "|", "~Finished"))
+					sockUDP.sendto(fmsg.encode(), ('localhost', int(originalUDP)))
+					
+					sockUDP.sendto(bodyMsg.encode(), ('localhost', int(originalUDP)))
+					
+				else:
+					# neighbour doesn't have a direct route, so tell the requester this. So that requester can move onto the next neighbour
+					originalUDP = getOriginalUDP(uri)
+					messg = "".join((uri, "noDirectRoute--", str(working_withUDP[1]), "++"))
+					sockUDP.sendto(messg.encode(), working_withUDP)
+					
+					# scan the neighbours of the current station (next depth level)
+					neigh_msg = "".join((uri, "&through=", stationName, "|"))
+					
+					nextNeigh = neighbours[neighbourIncrement]
+					if(nextNeigh == working_withUDP):
+						if(len(neighbours)-1 > neighbourIncrement):
+							neighbourIncrement += 1
+							nextNeigh = neighbours[neighbourIncrement]
+							sockUDP.sendto(neigh_msg.encode(), ('localhost', nextNeigh))
+					else:
+						sockUDP.sendto(neigh_msg.encode(), ('localhost', nextNeigh))
+				
+				
 
-				count = 0
-				for nm in names:
-					if(nm == sName):
-						count += 1
-						break
-				if(count == 0):
-					names.append(sName)
-				
-				while(uri.rfind("}") != -1):
-					ind = uri.rfind("}")
-					end = uri.rfind("]")
-					rm_string = uri[ind:end+1]
-					uri = uri.replace(rm_string, "")
-			
-			# stnList = uriContainsTransferStations(uri)
-			stnList = getTransferStations(uri)
-			lastStation = ""
-			if(len(stnList) == 0):
-				lastStation = stationName
-			else:	
-				lastStation = stnList[-1]
-			
-			proceed = False
-			lenS = len(stationName)
-			lenD = len(lastStation)
-			if(lenS == lenD):
-				if(lastStation == stationName):
-					proceed = True
-				else:
-					proceed = False
-			else:
-				proceed = False
-					
-			print("UP TO HERE \n\n")
-			print("lastStation: " + lastStation + "\n")
-			print("names: ")
-			print(names)
-			if((len(names) == len(neighbours)) and (uri.find("<p>") == -1) and proceed):
-				print("\n Names: \n")
-				print(names)
-				print("\n Neighbours: \n")
-				print(neighbours)
-				print("\n")
-				print(uri)
-				
-				if(len(neighbours) == 1 and (neighbours[0] == working_withUDP[1])):
-					sockUDP.sendto(uri.encode(), working_withUDP)		
-				else:
-					destinationStation = destStation(uri)
-					if(checkDirectRoute(destinationStation)):
-						cur_time = arrivalTime(uri)
-						route_final = nextAvailableRoute(cur_time, destinationStation)
-						new_arvl = route_final[3]
-						boardTime = route_final[0]
-						transportNumber = route_final[1]
-						stopPlatform = route_final[2]
-						
-						
-						endMsg='''
-						<div style="background-color:lightyellow; border-style: solid" align="middle" class="center">
-						<h2>From : {} </h2>
-						<h3>To : {} </h3>
-						<hr>
-						<p> Boarding time: {} </p>
-						<p> Transport Number: {} </p>
-						<p> Stop/Platform {} </p>
-						<hr>
-						<p><strong>Arrival Time at Destination: {}</strong></p>
-						</div>
-						<p>END</p>
-						'''.format(stationName, destinationStation, boardTime, transportNumber, stopPlatform, new_arvl)
-						
-						
-						inx = uri.rfind(">")
-						old_arvl = uri[inx+1: inx+6]
-						uri = uri.replace(old_arvl, new_arvl)
-						
-						oUDP = getOriginalUDP(uri)
-						msgSend = "".join((uri, "&through=", stationName, "~Finished"))
-						sockUDP.sendto(endMsg.encode(), ('localhost', int(oUDP)))
-						sockUDP.sendto(msgSend.encode(), ('localhost', int(oUDP)))
-					else:
-						for neigh in names:
-							print("\n\n RECIEVED NEIGHBOUR------------------- ")
-							print(neigh)
-							nextIt = False 
-							
-							splitter = neigh.rfind(":")
-							
-							n_name = neigh[0:splitter]
-							n_udp = neigh[splitter+1:]
-							
-							visitedStations = getTransferStations(uri)
-							for vstd in visitedStations:
-								if(vstd == n_name):
-									nextIt = True
-									continue
-							
-							if(n_udp == working_withUDP[1]):
-								continue
-							elif(nextIt):
-								continue
-							else:
-								cur_time = arrivalTime(uri)
-								if(cur_time == -1):
-									now = datetime.now()
-									current_time = now.strftime("%H:%M:%S")
-									# cur_time = current_time[0:5]
-									cur_time = "06:05"
-								
-								print("\n\nI wanna go to: " + n_name + "\n\n")
-								print("Im sending to neighbour name: " + str(n_name))
-								print("im sending to neighbour udp: " + str(n_udp))
-								rt = nextAvailableRoute(cur_time, n_name)
-								if(rt != -1):
-									arvTime = rt[3]
-									uri = uri.replace(cur_time, arvTime)
-									new_uri = "".join((uri, "&through=", stationName, "&through=", n_name))
-									print("I want to send this uri: \n" + new_uri)
-									sockUDP.sendto(new_uri.encode(), ('localhost', int(n_udp)))
-								else:
-									print("NO ROUTE -1")
-									continue
-						
-											
-					
-				
-							
-			
-				
-				
-				
-				
 	if(TCPconnected and (msg.find("<p>END</p>") != -1) and (msg.find("<p>START</p>") != -1)):
-		# display direct html
-		msg = "".join((msg, trs_msg, msg_end))
-		client_sock.send(msg.encode())
-		client_sock.close()
-			
-	elif(TCPconnected and (trs_msg.find("<p>END</p>") != -1) and (msg.find("<p>START</p>") != -1)):
-		# display transfer html
 		msg = "".join((msg, trs_msg, msg_end))
 		client_sock.send(msg.encode())
 		client_sock.close()

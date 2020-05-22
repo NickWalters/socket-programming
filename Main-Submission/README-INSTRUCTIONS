@@ -7,32 +7,36 @@ this program is unable to run on windows/non unix systems
 
 
 "
-Hello Chris, please find the main python file, and main C++ file for running this project. 
+Hello Chris, please find the main python ("station.py") file, and main C++ file ("station.cpp") for running this project. 
 
 	Unfortunately, this project is incomplete...im truly stumped.
-	I tried my best to get this python server showing the correct information.
-	It can successfully show the correct information/arrival time if you have 1 transfer, but if you have 2 or more transfers, then the information is incorrect. Thus this project is only suitable for a 4 station network
-	
-	
-	the C++ program shows DIRECT ROUTES only. Thus only working on a 4 station network too.
+	the python server doesnt work well on networks much greater than 4 stations. 1 transfer is what it can handle.
+		
+
+	the C++ program shows DIRECT ROUTES only. Thus only working on a 4 station network too. I had a lot of trouble with UDP sockets
 	
 	I hope I have shown enough evidence that i know a lot about networks with this code, even though its not a complete package............
+	I have shown use of TCP, UDP datagrams being sent across the network, with use of my own protocol to exchange queries.
+	
 	
 
 	Although the file is C++, the main networking code is in C, and only some C++ data structures were used, such as Strings, and vectors.
-
+	
+	
 	There is a folder called 'other files', but please dont assess the files in this folder. The scripts inside this folder were just for experimentation on my many attempts to get this project to work, and are just references for me
-	However, if you need/require departure time information (instead of current time) then "station.py" inside other files, may be useful for you.
+	However, if you need/require departure time information (instead of current time) then "station.py" inside other files, may be useful for you but it only works on routes with 1 transfer (ideally the 4 station network)
+	"station4.py" in other files, was my latest attempt to get this project working 100% but with little success
 "
 
 
+
+Navigate to Directory /main-submission
 
 Running the python script (example):
 
 	./station.py North_Terminus 4001 4002 4004
 	
 	
-
 Running the C++ Script (example):
 
 	g++ server.cpp -o station
